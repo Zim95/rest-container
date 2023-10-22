@@ -1,5 +1,9 @@
 #!/bin/bash
 
+REPO_NAME="zim95"
+BT_REST_IMAGE_NAME="browseterm-rest"
+BT_REST_IMAGE_TAG="latest"
+
 # Log in to Docker Hub (You'll be prompted to enter your Docker Hub credentials)
 docker login -u "$REPO_NAME"
 
