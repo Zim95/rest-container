@@ -21,8 +21,7 @@ class ContainerManager:
         self,
         image_name: str,
         container_name: str,
-        container_password: str = "",
-        key_based: bool =False
+        container_password: str,
     ) -> None:
         """
         Initialize parameters:
@@ -31,13 +30,12 @@ class ContainerManager:
             :container_name: str: Name of the container.
             :container_password: str: Password of the container.
                                       Required for sudo commands as well.
-            :key_based: bool: Experimental (Will need to see).
+
         Author: Namah Shrestha
         """
         self.image_name: str = image_name
         self.container_name: str = container_name
         self.container_password: str = container_password
-        self.key_based: bool = key_based
 
     @classmethod
     @abc.abstractmethod
@@ -71,11 +69,10 @@ class DockerContainerManager(ContainerManager):
         self,
         image_name: str,
         container_name: str,
-        container_password: str = "",
-        key_based: bool =False
+        container_password: str,
     ) -> None:
         super().__init__(
-            image_name, container_name, container_password, key_based)
+            image_name, container_name, container_password)
     
     def create_container(self) -> dict:
         try:
@@ -129,12 +126,10 @@ class KubernetesContainerManager(ContainerManager):
         self,
         image_name: str,
         container_name: str,
-        container_password: str = "",
-        key_based: bool =False
+        container_password: str,
     ) -> None:
         super().__init__(
-            image_name, container_name, container_password, key_based
-        )
+            image_name, container_name, container_password)
 
 
 ENV_CONTAINER_MGR_MAPPING: dict = {
