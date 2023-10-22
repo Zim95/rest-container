@@ -11,8 +11,11 @@ import src.exceptions as exceptions
 
 class ContainerManager:
     """
-    Manages containers in the 
-    
+    Manages containers in the supported environment.
+    This is an abstract class. To be implemented for each
+    new supported environment.
+
+    Author: Namah Shrestha
     """
     def __init__(
         self,
@@ -21,12 +24,24 @@ class ContainerManager:
         container_password: str = "",
         key_based: bool =False
     ) -> None:
+        """
+        Initialize parameters:
+        :params:
+            :image_name: str: Supported image name. e.g. ubuntu
+            :container_name: str: Name of the container.
+            :container_password: str: Password of the container.
+                                      Required for sudo commands as well.
+            :key_based: bool: Experimental (Will need to see).
+        Author: Namah Shrestha
+        """
         self.image_name: str = image_name
         self.container_name: str = container_name
         self.container_password: str = container_password
         self.key_based: bool = key_based
 
-    def create_network(self) -> dict:
+    @classmethod
+    @abc.abstractmethod
+    def create_network(cls) -> dict:
         pass
 
     @abc.abstractmethod
@@ -96,7 +111,8 @@ class DockerContainerManager(ContainerManager):
             return {
                 "container_id": container.id,
                 "container_ip": container.attrs[
-                    'NetworkSettings']['Networks']['mynetwork']['IPAddress'],
+                    'NetworkSettings']['Networks'][
+                        constants.BROWSETERM_DOCKER_NETWORK]['IPAddress'],
             }
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
