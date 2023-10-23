@@ -2,10 +2,10 @@
 import flask
 # builtins
 import typing
-import os
 # modules
 import src.handlers as handlers
 import src.exceptions as exceptions
+import src.utils as utils
 
 
 HANDLERS_MAP: dict = {
@@ -44,12 +44,6 @@ class Controller:
         }
         return request_params
 
-    def get_runtime_environment(self) -> str:
-        if "DOCKER_HOST" in os.environ:
-            return "docker"
-        elif "KUBERNETES_SERVICE_HOST" in os.environ:
-            return "kubernetes"
-
     def handle(self, **kwargs: dict) -> typing.Any:
         """
         1. Sends the request data to appropriate handler methods
@@ -62,7 +56,7 @@ class Controller:
         """
         try:
             request_params: dict = self.get_request_params(**kwargs)
-            runtime_environment: str = self.get_runtime_environment()
+            runtime_environment: str = utils.get_runtime_environment()
             container_environment: str = self.request_params[
                 "view_args"].get("cnenv", "")
             if runtime_environment != container_environment:

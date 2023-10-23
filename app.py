@@ -3,11 +3,18 @@ import flask
 
 # modules
 import src.controller as cn
+import src.utils as utils
 
 
 # setup
 app: flask.Flask = flask.Flask(__name__)
 controller: cn.Controller = cn.Controller()
+
+runtime_environment: str = utils.get_runtime_environment()
+import logging
+logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.info(f"Runtime environment =======> {runtime_environment}")
 
 
 # add routes

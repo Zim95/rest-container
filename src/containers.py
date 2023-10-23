@@ -7,6 +7,7 @@ import kubernetes
 # modules
 import src.constants as constants
 import src.exceptions as exceptions
+import src.utils as utils
 
 
 class ContainerManager:
@@ -63,7 +64,7 @@ class ContainerManager:
 
 
 class DockerContainerManager(ContainerManager):
-    if "DOCKER_HOST" in os.environ:
+    if utils.get_runtime_environment() == "docker":
         client = docker.from_env()
     else:
         client = None
