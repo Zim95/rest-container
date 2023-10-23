@@ -1,0 +1,11 @@
+- Add create_network method on docker.
+- Make the code deployable on kubernetes.
+- Add kubernetes methods to create, start, stop, delete.
+- Look into Load balancing.
+- Look into SSL.
+- Fix Makefile issues.
+- Add swagger UI.
+- Add unit tests.
+- Add integration tests.
+- Add tox.
+- Add github actions.
