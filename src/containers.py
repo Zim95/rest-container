@@ -1,5 +1,5 @@
 # builtins
-import typing
+import time
 import abc
 # third-party
 import docker
@@ -105,11 +105,17 @@ class DockerContainerManager(ContainerManager):
         try:
             container = cls.client.containers.get(container_id=container_id)
             container.start()
+            container.reload()
+            ip_address: str = container.attrs[
+                    'NetworkSettings']['Networks'][
+                        constants.BROWSETERM_DOCKER_NETWORK]['IPAddress']
+            if not ip_address:
+                raise exceptions.ContainerIpUnresolved(
+                    "Containers ip address is not resolved."
+                )
             return {
                 "container_id": container.id,
-                "container_ip": container.attrs[
-                    'NetworkSettings']['Networks'][
-                        constants.BROWSETERM_DOCKER_NETWORK]['IPAddress'],
+                "container_ip": ip_address,
             }
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)

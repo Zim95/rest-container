@@ -18,3 +18,10 @@ class ContainerManagerNotFound(Exception):
     for that environment is not yet assigned.
     """
     pass
+
+
+class ContainerIpUnresolved(Exception):
+    """
+    When container ip address cannot be resolved when starting a container.
+    """
+    pass
