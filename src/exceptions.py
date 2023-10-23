@@ -25,3 +25,15 @@ class ContainerIpUnresolved(Exception):
     When container ip address cannot be resolved when starting a container.
     """
     pass
+
+
+class EnvironmentMismatch(Exception):
+    """
+    When the requests are coming for a different container environment
+    than the one in which the application is deployed on.
+
+    For example:
+        A /create/docker request is invalid if the application is deployed
+        on kubernetes.
+    """
+    pass

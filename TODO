@@ -1,3 +1,4 @@
+- When running on docker, kuberenetes requests shouldnt work and vice versa.
 - Add create_network method on docker.
 - Make the code deployable on kubernetes.
 - Add kubernetes methods to create, start, stop, delete.

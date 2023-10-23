@@ -10,6 +10,9 @@ This REST API is specific to Browseterm. It can only create containers with imag
     1. ubuntu
 
 # Run on Docker
+- PreRequisites:
+    - Make sure `docker` is installed.
+    - Make sure `docker` commands can be used without `sudo`.
 - First build the image:
     ```
     make build

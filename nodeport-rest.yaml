@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: browseterm-rest-nodeport-service
+spec:
+  selector:
+    app: browseterm-rest
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8002
+      targetPort: 8002
+  type: NodePort

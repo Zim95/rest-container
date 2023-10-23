@@ -1,5 +1,5 @@
 # builtins
-import time
+import os
 import abc
 # third-party
 import docker
@@ -63,7 +63,10 @@ class ContainerManager:
 
 
 class DockerContainerManager(ContainerManager):
-    client = docker.from_env()
+    if "DOCKER_HOST" in os.environ:
+        client = docker.from_env()
+    else:
+        client = None
 
     def __init__(
         self,
@@ -73,9 +76,19 @@ class DockerContainerManager(ContainerManager):
     ) -> None:
         super().__init__(
             image_name, container_name, container_password)
-    
+
+    @classmethod
+    def check_client(cls) -> None:
+        if cls.client is None:
+            environment_mismatch: str = (
+                "Container is not running on docker. "
+                "Therefore docker client is None."
+            )
+            raise exceptions.EnvironmentMismatch(environment_mismatch)
+
     def create_container(self) -> dict:
         try:
+            self.check_client()
             image: str = constants.BROWSETERM_IMAGE_NAME_MAPPING.get(
                 self.image_name)
             if not image:
@@ -99,10 +112,13 @@ class DockerContainerManager(ContainerManager):
             return {"container_id": container.id}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except exceptions.EnvironmentMismatch as em:
+            raise exceptions.EnvironmentMismatch(em)
 
     @classmethod
     def start_container(cls, container_id: str) -> dict:
         try:
+            cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
             container.start()
             container.reload()
@@ -119,24 +135,32 @@ class DockerContainerManager(ContainerManager):
             }
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except exceptions.EnvironmentMismatch as em:
+            raise exceptions.EnvironmentMismatch(em)
 
     @classmethod
     def stop_container(cls, container_id: str) -> dict:
         try:
+            cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
             container.stop()
             return {"container_id": container.id, "status": "stopped"}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except exceptions.EnvironmentMismatch as em:
+            raise exceptions.EnvironmentMismatch(em)
 
     @classmethod
     def delete_container(cls, container_id: str) -> dict:
         try:
+            cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
             container.remove()
             return {"container_id": container.id, "status": "deleted"}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except exceptions.EnvironmentMismatch as em:
+            raise exceptions.EnvironmentMismatch(em)
 
 
 class KubernetesContainerManager(ContainerManager):
