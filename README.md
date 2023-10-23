@@ -1,18 +1,49 @@
 # BrowseTerm REST
-REST API to:
-1. Create SSH Containers.
-    - {'image_name': '<existing_image_name>', 'container_name': '<userdefined>'}
-2. Start SSH Containers.
-    - {'container_name': '<userdefined>'}
-3. Stop SSH Containers.
-2. Delete SSH Containers info based on id.
-3. Retrieve SSH Container info based on id.
-4. Backup/Save SSH Container.
+Browseterm's REST API which creates browseterm's SSH Containers on either docker or kubernetes.
+
+This REST API is specific to Browseterm. It can only create containers with images supported by browseterm.
+
+# Run on Docker
+- First build the image:
+    ```
+    make build
+    ```
+- Deploy the docker container:
+    ```
+    make dockerrun    
+    ```
+NOTE: All the commands in Makefile do not work as intended. This is being fixed.
+
+# Docker Related Requests
+- Once the code has run on docker you may use the following requests.
+    1. Create container request:
+        ```
+        curl -XPOST "http://localhost:8002/create/docker" -d '{"image_name": "ubuntu", "container_name": "test_ssh", "container_password": "0907namah"}' -H "Content-Type: application/json"
+        ```
+
+    2. Start container request:
+        ```
+        curl -XPOST "http://localhost:8002/start/docker" -d '{"container_id": ""}' -H "Content-Type: application/json"
+        ```
+
+    3. Stop container request:
+        ```
+        curl -XPOST "http://localhost:8002/stop/docker" -d '{"container_id": ""}' -H "Content-Type: application/json"
+        ```
+
+    4. Delete container request:
+        ```
+        curl -XPOST "http://localhost:8002/delete/docker" -d '{"container_id": ""}' -H "Content-Type: application/json"
+        ```
+
+# Pushing the image
+NOTE:
+    - Pushing the image requires the image to be built.
+    - Pushing the image requires the user to know the password or have access to Personal Access Token.
+    - Therefore, Pushing is only recommended for the people who have access to zim95 repository.
+- Here is the command to push the image:
+    ```
+    make push
+    ```
 
 
-# DEPLOYMENT PROBLEM
-1. The socket server and the ssh container need to be in the same network.
-2. All users will connect to the same socket server (theoretically - even if they are load balanced and all. Its one entity.)
-3. So all containers of all users need to be on the same network.
-4. Meaning they can all ssh into one another if they choose.
-5. Therefore, enable PK ssh only or add namespaces to username.
