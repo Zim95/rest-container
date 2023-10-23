@@ -15,6 +15,8 @@ routes: list = [
     ("/ping", "ping", ["GET", "POST"]),
     ("/create/<string:cnenv>", "create", ["POST"]),
     ("/start/<string:cnenv>", "start", ["POST"]),
+    ("/stop/<string:cnenv>", "stop", ["POST"]),
+    ("/delete/<string:cnenv>", "delete", ["POST"]),
 ]
 for route in routes:
     app.add_url_rule(route[0], route[1], controller.handle, methods=route[2])

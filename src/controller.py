@@ -9,6 +9,8 @@ import src.handlers as handlers
 HANDLERS_MAP: dict = {
     "create": handlers.CreateContainerHandler,
     "start": handlers.StartContainerHandler,
+    "stop": handlers.StopContainerHandler,
+    "delete": handlers.DeleteContainerHandler,
     "ping": handlers.PingHandler,
 }
 

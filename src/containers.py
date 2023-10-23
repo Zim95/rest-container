@@ -120,6 +120,24 @@ class DockerContainerManager(ContainerManager):
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
 
+    @classmethod
+    def stop_container(cls, container_id: str) -> dict:
+        try:
+            container = cls.client.containers.get(container_id=container_id)
+            container.stop()
+            return {"container_id": container.id, "status": "stopped"}
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+
+    @classmethod
+    def delete_container(cls, container_id: str) -> dict:
+        try:
+            container = cls.client.containers.get(container_id=container_id)
+            container.remove()
+            return {"container_id": container.id, "status": "deleted"}
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+
 
 class KubernetesContainerManager(ContainerManager):
     """

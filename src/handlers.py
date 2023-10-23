@@ -170,7 +170,7 @@ class CreateContainerHandler(ContainerHandler):
             }
 
 
-class StartContainerHandler(ContainerHandler):
+class ReadyContainerHandler(ContainerHandler):
     """
     Checks if the environment provided has the container id.
     If so, it starts the container.
@@ -186,6 +186,10 @@ class StartContainerHandler(ContainerHandler):
         """
         super().__init__(request_params)
 
+    @abc.abstractmethod
+    def calling_method(self, container_id: str) -> dict:
+        pass
+
     def handle(self) -> dict | None:
         """
         Take the environment: Either docker or kubernetes.
@@ -198,9 +202,7 @@ class StartContainerHandler(ContainerHandler):
             super().handle()
             container_payload: dict = self.get_payload()
             container_id: str = container_payload.get("container_id", "")
-            response: dict = self.container_manager.start_container(
-                container_id=container_id)
-            return response
+            return self.calling_method(container_id=container_id)
         except exceptions.UnsupportedContainerEnvironment as e:
             return {
                 "unsupported_container_env_error": str(e),
@@ -213,3 +215,45 @@ class StartContainerHandler(ContainerHandler):
             return {
                 "docker_exception": str(de),
             }
+
+
+class StartContainerHandler(ReadyContainerHandler):
+
+    def __init__(self, request_params: dict) -> None:
+        super().__init__(request_params)
+
+    def calling_method(self, container_id: str) -> dict:
+        try:
+            response: dict = self.container_manager.start_container(
+                container_id=container_id)
+            return response
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+
+
+class StopContainerHandler(ReadyContainerHandler):
+
+    def __init__(self, request_params: dict) -> None:
+        super().__init__(request_params)
+
+    def calling_method(self, container_id: str) -> dict:
+        try:
+            response: dict = self.container_manager.stop_container(
+                container_id=container_id)
+            return response
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+
+
+class DeleteContainerHandler(ReadyContainerHandler):
+
+    def __init__(self, request_params: dict) -> None:
+        super().__init__(request_params)
+
+    def calling_method(self, container_id: str) -> dict:
+        try:
+            response: dict = self.container_manager.delete_container(
+                container_id=container_id)
+            return response
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
