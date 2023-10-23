@@ -37,10 +37,9 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
         ```
 
 # Pushing the image
-NOTE:
-    - Pushing the image requires the image to be built.
-    - Pushing the image requires the user to know the password or have access to Personal Access Token.
-    - Therefore, Pushing is only recommended for the people who have access to zim95 repository.
+- Pushing the image requires the image to be built.
+- Pushing the image requires the user to know the password or have access to Personal Access Token.
+- Therefore, Pushing is only recommended for the people who have access to zim95 repository.
 - Here is the command to push the image:
     ```
     make push
