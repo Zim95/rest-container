@@ -1,4 +1,4 @@
-# REST Containers
+# REST Container
 A REST API interface to create containers in whichever container environment you are running.
 Currently supported:
 1. Docker
@@ -22,7 +22,7 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
 - Once the code has run on docker you may use the following requests.
     1. Create container request:
         ```
-        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<optional, enter a network name>", "environment": "{'keya': 'valuea', ...}"
+        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<optional, enter a network name>", "environment": "{\"keya\": \"valuea\"}"
         }' -H "Content-Type: application/json"
         ```
 
