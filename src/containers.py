@@ -22,7 +22,8 @@ class ContainerManager:
         self,
         image_name: str,
         container_name: str,
-        container_password: str,
+        container_network: str = "",
+        environment: dict = {},
     ) -> None:
         """
         Initialize parameters:
@@ -36,11 +37,12 @@ class ContainerManager:
         """
         self.image_name: str = image_name
         self.container_name: str = container_name
-        self.container_password: str = container_password
+        self.container_network: str = constants.BROWSETERM_DOCKER_NETWORK if not \
+            container_network else container_network
+        self.environment: dict = environment
 
-    @classmethod
     @abc.abstractmethod
-    def create_network(cls) -> dict:
+    def create_network(self) -> dict:
         pass
 
     @abc.abstractmethod
@@ -73,32 +75,43 @@ class DockerContainerManager(ContainerManager):
         self,
         image_name: str,
         container_name: str,
-        container_password: str,
+        container_network: str = "",
+        environment: dict = {},
     ) -> None:
         super().__init__(
-            image_name, container_name, container_password)
+            image_name,
+            container_name,
+            container_network=container_network,
+            environment=environment
+        )
 
     @classmethod
     def check_client(cls) -> None:
         if cls.client is None:
-            environment_mismatch: str = (
-                "Container is not running on docker. "
-                "Therefore docker client is None."
+            client_is_none: str = (
+                "The client is None. "
+                "This happens when the methods of a different container manager is called "
+                "than the runtime environment"
             )
-            raise exceptions.EnvironmentMismatch(environment_mismatch)
+            raise exceptions.ContainerClientNotResolved(client_is_none)
+
+    def create_network(self) -> dict:
+        try:
+            existing_networks: list = self.client.networks.list(names=[self.container_network])
+            if not existing_networks:
+                # Network does not exist, so create it
+                self.client.networks.create(self.container_network)
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
     def create_container(self) -> dict:
         try:
             self.check_client()
-            image: str = constants.BROWSETERM_IMAGE_NAME_MAPPING.get(
-                self.image_name)
-            if not image:
-                unsupported_image_err: str = (
-                    f"Unsupported Image Name: {self.image_name}"
-                )
-                raise exceptions.UnsupportedImageName(unsupported_image_err)
+            self.create_network()
             container_options: dict = {
-                "image": image,
+                "image": self.image_name,
                 "name": self.container_name,
                 "network": constants.BROWSETERM_DOCKER_NETWORK,
                 "detach": True,
@@ -106,15 +119,17 @@ class DockerContainerManager(ContainerManager):
                     "22/tcp": 2222,
                 },
                 "environment": {
-                    "SSH_PASSWORD": self.container_password,
+                    **os.environ,
+                    **self.environment,
                 },
             }
+            # TODO: Remove ports
             container = self.client.containers.create(**container_options)
             return {"container_id": container.id}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
-        except exceptions.EnvironmentMismatch as em:
-            raise exceptions.EnvironmentMismatch(em)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
     def start_container(cls, container_id: str) -> dict:
@@ -136,8 +151,8 @@ class DockerContainerManager(ContainerManager):
             }
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
-        except exceptions.EnvironmentMismatch as em:
-            raise exceptions.EnvironmentMismatch(em)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
     def stop_container(cls, container_id: str) -> dict:
@@ -148,8 +163,8 @@ class DockerContainerManager(ContainerManager):
             return {"container_id": container.id, "status": "stopped"}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
-        except exceptions.EnvironmentMismatch as em:
-            raise exceptions.EnvironmentMismatch(em)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
     def delete_container(cls, container_id: str) -> dict:
@@ -160,8 +175,8 @@ class DockerContainerManager(ContainerManager):
             return {"container_id": container.id, "status": "deleted"}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
-        except exceptions.EnvironmentMismatch as em:
-            raise exceptions.EnvironmentMismatch(em)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
 
 class KubernetesContainerManager(ContainerManager):
@@ -175,10 +190,15 @@ class KubernetesContainerManager(ContainerManager):
         self,
         image_name: str,
         container_name: str,
-        container_password: str,
+        container_network: str = "",
+        environment: dict = {},
     ) -> None:
         super().__init__(
-            image_name, container_name, container_password)
+            image_name,
+            container_name,
+            container_network=container_network,
+            environment=environment
+        )
 
 
 ENV_CONTAINER_MGR_MAPPING: dict = {

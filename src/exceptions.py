@@ -1,13 +1,6 @@
-class UnsupportedContainerEnvironment(Exception):
+class UnsupportedRuntimeEnvironment(Exception):
     """
     When unsupported container environment is provided.
-    """
-    pass
-
-
-class UnsupportedImageName(Exception):
-    """
-    When unsupported image name is provided.
     """
     pass
 
@@ -27,13 +20,10 @@ class ContainerIpUnresolved(Exception):
     pass
 
 
-class EnvironmentMismatch(Exception):
+class ContainerClientNotResolved(Exception):
     """
-    When the requests are coming for a different container environment
-    than the one in which the application is deployed on.
-
-    For example:
-        A /create/docker request is invalid if the application is deployed
-        on kubernetes.
+    When container client is None.
+    This happens when methods of the wrong container manager are called.
+    from a different runtime environment.
     """
     pass

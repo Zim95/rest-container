@@ -6,6 +6,7 @@ import abc
 import src.exceptions as exceptions
 import src.constants as constants
 import src.containers as containers
+import src.utils as utils
 
 # third party
 import docker
@@ -41,7 +42,7 @@ class PingHandler(Handler):
     """
     Simple Ping Handler. For test.
     Accepts request parameters.
-    Echoes back request parameters.
+    Echoes back request parameters and runtime environment.
 
     Author: Namah Shrestha
     """
@@ -59,7 +60,10 @@ class PingHandler(Handler):
 
         Author: Namah Shrestha
         """
-        return self.request_params
+        return {
+            "request_params": self.request_params,
+            "runtime": utils.get_runtime_environment()
+        }
 
 
 class ContainerHandler(Handler):
@@ -77,41 +81,52 @@ class ContainerHandler(Handler):
         """
         super().__init__(request_params)
 
-    def get_payload(self) -> dict:
+    def json_load(self, dictionary: dict, key: str) -> dict:
         """
-        Json load the payload and then raise error if
+        Json load the provided key and then raise error if
         Json loading doesn't work.
 
         Author: Namah Shrestha
         """
         try:
-            return json.loads(self.request_params["payload"])
+            item: str = dictionary[key]
+            # this is for those dictionaries that are enclosed in
+            # single quotes.
+            if "'" in item:
+                item = item.replace("'", "\"")
+            return json.loads(item)
+        except KeyError as ke:
+            raise KeyError(ke)
         except json.JSONDecodeError as je:
             raise json.JSONDecodeError(je)
 
     def handle(self) -> dict | None:
         """
-        Handle environment exception.
-        Handle container manager exception.
+        Get runtime environment. Based on that choose the container manager.
+        Handle container manager exception and unsupported runtime environment exception.
+
+        This functionality is specific to containers and therefore is only defined in
+        Container handler.
+        Other handlers may not need to know the runtime environment.
 
         Author: Namah Shrestha
         """
-        container_environment: str = self.request_params["view_args"].get(
-            "cnenv", "")
-        if container_environment not in constants.SUPPORTED_ENVIRONMENTS:
-            container_environment_not_supported: str = (
-                "Unsupported container environment: "
-                f"{container_environment}"
+        runtime_environment: str = utils.get_runtime_environment()
+        if runtime_environment not in constants.SUPPORTED_ENVIRONMENTS:
+            runtime_environment_not_supported: str = (
+                "Unsupported runtime environment: "
+                f"{runtime_environment}"
             )
-            raise exceptions.UnsupportedContainerEnvironment(
-                container_environment_not_supported
+            exceptions.UnsupportedRuntimeEnvironment(
+                runtime_environment_not_supported
             )
+
         self.container_manager: containers.ContainerManager = \
                 containers.ENV_CONTAINER_MGR_MAPPING.get(
-                    container_environment)
+                    runtime_environment)
         if not self.container_manager:
             cnmgrnf: str = (
-                f"Container Manager for {self.container_environment}"
+                f"Container Manager for {runtime_environment}"
                 "has not been assigned yet. We regret the inconvenience."
             )
             raise exceptions.ContainerManagerNotFound(cnmgrnf)
@@ -135,7 +150,7 @@ class CreateContainerHandler(ContainerHandler):
     def handle(self) -> dict | None:
         """
         Take the environment: Either docker or kubernetes.
-        Take the image name. (Should be a supported image).
+        Take the image name.
         Deploy the image on environment.
         Return the container id.
 
@@ -143,26 +158,31 @@ class CreateContainerHandler(ContainerHandler):
         """
         try:
             super().handle()  
-            container_payload: dict = self.get_payload()
+            container_payload: dict = self.json_load(self.request_params, "payload")
             container_manager_object: containers.ContainerManager = \
                 self.container_manager(
                     image_name=container_payload.get("image_name", ""),
                     container_name=container_payload.get("container_name", ""),
-                    container_password=container_payload.get("container_password", "")
+                    container_network=container_payload.get("container_network", ""),
+                    environment=self.json_load(container_payload, "environment"),
                 )
             response: dict = container_manager_object.create_container()
             return response
-        except exceptions.UnsupportedContainerEnvironment as e:
+        except exceptions.UnsupportedRuntimeEnvironment as e:
             return {
-                "unsupported_container_env_error": str(e),
+                "unsupported_runtime_env_error": str(e),
             }
         except exceptions.ContainerManagerNotFound as e:
             return {
                 "container_mgr_not_found_error": str(e),
             }
+        except KeyError as ke:
+            return {
+                "keyerror": str(ke),
+            }
         except json.JSONDecodeError as je:
             return {
-                "payload_format_error": str(e),
+                "json_decode_error": str(je),
             }
         except docker.errors.DockerException as de:
             return {
@@ -172,8 +192,9 @@ class CreateContainerHandler(ContainerHandler):
 
 class ReadyContainerHandler(ContainerHandler):
     """
-    Checks if the environment provided has the container id.
-    If so, it starts the container.
+    Methods for a container which has been created already.
+    Has an abstractmethod called calling method which might be start, stop, delete, etc.
+    Rest of the logic is handled by handle.
 
     Author: Namah Shrestha
     """
@@ -188,6 +209,9 @@ class ReadyContainerHandler(ContainerHandler):
 
     @abc.abstractmethod
     def calling_method(self, container_id: str) -> dict:
+        """
+        Either start, stop or delete. The container should be created prior.
+        """
         pass
 
     def handle(self) -> dict | None:
@@ -200,12 +224,12 @@ class ReadyContainerHandler(ContainerHandler):
         """
         try:
             super().handle()
-            container_payload: dict = self.get_payload()
+            container_payload: dict = self.json_load(self.request_params, "payload")
             container_id: str = container_payload.get("container_id", "")
             return self.calling_method(container_id=container_id)
-        except exceptions.UnsupportedContainerEnvironment as e:
+        except exceptions.UnsupportedRuntimeEnvironment as e:
             return {
-                "unsupported_container_env_error": str(e),
+                "unsupported_runtime_env_error": str(e),
             }
         except exceptions.ContainerManagerNotFound as e:
             return {

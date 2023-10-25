@@ -4,8 +4,6 @@ import flask
 import typing
 # modules
 import src.handlers as handlers
-import src.exceptions as exceptions
-import src.utils as utils
 
 
 HANDLERS_MAP: dict = {
@@ -50,22 +48,10 @@ class Controller:
             based on route.
         2. Returns the response of the handler.
         3. Handles exceptions.
-        4. Makes sure that only docker requests are accepted in docker environment
-            and only kubernetes requests are accepted in kubernetes environment
         Author: Namah Shrestha
         """
         try:
             request_params: dict = self.get_request_params(**kwargs)
-            runtime_environment: str = utils.get_runtime_environment()
-            container_environment: str = self.request_params[
-                "view_args"].get("cnenv", "")
-            if runtime_environment != container_environment:
-                environment_mismatch: str = (
-                    f"Runtime Environment is: {runtime_environment}. "
-                    f"Requests is made for: {container_environment}. "
-                    f"Please make sure the environments match. "
-                )
-                raise exceptions.EnvironmentMismatch(environment_mismatch)
             handler_name: str = flask.request.path
             if handler_name != "/":
                 handler_name: str = handler_name.split("/")[1]
