@@ -25,7 +25,7 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
 - Here are the requests.
     1. Create container request:
         ```
-        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<enter a network name>", "publish_information": "{\"22\/tcp\": 2222}", "environment": "{\"keya\": \"valuea\"}"
+        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<enter a network name>", "publish_information": "{\"<container-port>\/tcp\": <host-port>}", "environment": "{\"keya\": \"valuea\"}"
         }' -H "Content-Type: application/json"
         ```
         NOTE: `container_name`, `publish_information` and `environment` are optional request parameters.

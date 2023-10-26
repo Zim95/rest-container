@@ -281,11 +281,20 @@ class KubernetesContainerManager(ContainerManager):
 
     Author: Namah Shrestha
     """
+
+    """ 
+    Update the client if the runtime environment is kubernetes.
+    This means, the client will be set if the application is running inside kubernetes.
+    Otherwise, it will be None.
+
+    Author: Namah Shrestha
+    """
     if utils.get_runtime_environment() == "kubernetes":
         kconf.load_kube_config()
         client = kcli.CoreV1Api()
     else:
         client = None
+
     def __init__(
         self,
         image_name: str,
@@ -294,6 +303,12 @@ class KubernetesContainerManager(ContainerManager):
         publish_information: dict = {},
         environment: dict = {},
     ) -> None:
+        """
+        Initialize parameters by calling the super method.
+        Set default value for container_network if not provided.
+
+        Author: Namah Shrestha
+        """
         super().__init__(
             image_name,
             container_name,
@@ -306,10 +321,11 @@ class KubernetesContainerManager(ContainerManager):
 
     def create_namespace(self) -> dict:
         """
-        Create a namespace in kubernetes. The container network provided
-        will serve as the namespace. The policy has been created such that,
-        one namespace is cannot interact with the other. This is done through
-        V1NetworkPolicyIngressRule.
+        Create a namespace in kubernetes.
+        The container network provided will serve as the namespace.
+        The policy has been created such that,
+            one namespace is cannot interact with the other.
+        This is done through V1NetworkPolicyIngressRule.
 
         Author: Namah Shrestha
         """
