@@ -1,5 +1,4 @@
 - When running on docker, docker env should be set and same for kubernetes.
-- Add create_network method on docker.
 - Make the code deployable on kubernetes.
 - Add kubernetes methods to create, start, stop, delete.
 - Look into Load balancing.
@@ -14,13 +13,8 @@
 
 Tomorrow:
 ---------
-1. Delete browseterm docker container.
-2. Delete test_ssh docker container.
-3. Rebuild image and Repush
-4. Run docker container.
-5. Check logs for runtime environment.
-6. Run in kubernetes.
-7. Check logs for runtime environment. /.dockerenv should not be present.
+1. Run in kubernetes.
+2. Check logs for runtime environment. /.dockerenv should not be present.
 
 
 Refactor:
