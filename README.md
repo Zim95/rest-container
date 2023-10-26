@@ -18,6 +18,24 @@ Currently supported:
     ```
 NOTE: All the commands in Makefile do not work as intended. This is being fixed.
 
+# Debug on Docker
+- PreRequisites:
+    - Run on Docker by following the above mentioned steps.
+- If you notice, the docker container created has two ports open `8002` and `8003`.
+    - `8002` is your actual running container and `8003` is for debugging.
+- Once the container is running, `exec` into the container.
+    ```
+    docker container exec -it <container_id> bash
+    ```
+- Then run `app.py` with `python`.
+    ```
+    python app.py
+    ```
+- This will start your debug `flask` application on `8003`.
+- Now make the API Requests to port `8003`.
+- You can also use the debugger, `import pdb; pdb.set_trace()` or `breakpoint()` to
+    debug parts of your code.
+
 # API Requests
 - The API Requests will create/stop/start/delete containers on which ever environment they are run on.
 - For example,
