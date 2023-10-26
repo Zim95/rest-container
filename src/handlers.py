@@ -89,14 +89,12 @@ class ContainerHandler(Handler):
         Author: Namah Shrestha
         """
         try:
-            item: str = dictionary[key]
+            item: str = dictionary.get(key, "{}")
             # this is for those dictionaries that are enclosed in
             # single quotes.
             if "'" in item:
                 item = item.replace("'", "\"")
             return json.loads(item)
-        except KeyError as ke:
-            raise KeyError(ke)
         except json.JSONDecodeError as je:
             raise json.JSONDecodeError(je)
 
@@ -149,10 +147,14 @@ class CreateContainerHandler(ContainerHandler):
     
     def handle(self) -> dict | None:
         """
-        Take the environment: Either docker or kubernetes.
-        Take the image name.
-        Deploy the image on environment.
-        Return the container id.
+        Parse the request payload.
+        Extract:
+            image_name: str: Name of the image.
+            container_name: str: Name of the container.
+            container_network: str: Name of the network.
+            publish_information: dict: Port mappings.
+            environment: Environment dictionary.
+        Create the container based on these params.
 
         Author: Namah Shrestha
         """
@@ -164,6 +166,7 @@ class CreateContainerHandler(ContainerHandler):
                     image_name=container_payload.get("image_name", ""),
                     container_name=container_payload.get("container_name", ""),
                     container_network=container_payload.get("container_network", ""),
+                    publish_information=self.json_load(container_payload, "publish_information"),
                     environment=self.json_load(container_payload, "environment"),
                 )
             response: dict = container_manager_object.create_container()
@@ -175,10 +178,6 @@ class CreateContainerHandler(ContainerHandler):
         except exceptions.ContainerManagerNotFound as e:
             return {
                 "container_mgr_not_found_error": str(e),
-            }
-        except KeyError as ke:
-            return {
-                "keyerror": str(ke),
             }
         except json.JSONDecodeError as je:
             return {

@@ -25,6 +25,7 @@ class ContainerManager:
         image_name: str,
         container_name: str,
         container_network: str = "",
+        publish_information: dict = {},
         environment: dict = {},
     ) -> None:
         """
@@ -35,16 +36,23 @@ class ContainerManager:
             :container_network: str: Name of the network in which the container is deployed.
                                      There should be some default value for this for each
                                      container environment.
-            :environment: Environment variables as a dictionary.
+            :publish_information: dict: Port and host mapping information.
+            :environment: dict: Environment variables as a dictionary.
         Author: Namah Shrestha
         """
         self.image_name: str = image_name
         self.container_name: str = container_name
         self.container_network: str = container_network
+        self.publish_information: dict = publish_information
         self.environment: dict = environment
 
     @classmethod
     def check_client(cls) -> None:
+        """
+        Check the client. If it is None, then raise an exception.
+
+        Author: Namah Shrestha
+        """
         if cls.client is None:
             client_is_none: str = (
                 "The client is None. "
@@ -84,13 +92,15 @@ class DockerContainerManager(ContainerManager):
         image_name: str,
         container_name: str,
         container_network: str = "",
+        publish_information: dict = {},
         environment: dict = {},
     ) -> None:
         super().__init__(
             image_name,
             container_name,
             container_network=container_network,
-            environment=environment
+            publish_information=publish_information,
+            environment=environment,
         )
         if not self.container_network:
             self.container_network = constants.RC_DOCKER_NETWORK
@@ -116,9 +126,7 @@ class DockerContainerManager(ContainerManager):
                 "name": self.container_name,
                 "network": self.container_network,
                 "detach": True,
-                "ports": {
-                    "22/tcp": 2222,
-                },
+                "ports": self.publish_information,
                 "environment": {
                     **os.environ,
                     **self.environment,
@@ -197,13 +205,15 @@ class KubernetesContainerManager(ContainerManager):
         image_name: str,
         container_name: str,
         container_network: str = "",
+        publish_information: dict = {},
         environment: dict = {},
     ) -> None:
         super().__init__(
             image_name,
             container_name,
             container_network=container_network,
-            environment=environment
+            publish_information=publish_information,
+            environment=environment,
         )
         if not self.container_network:
             self.container_network = constants.RC_KUBERNETES_NAMESPACE

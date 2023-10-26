@@ -1,7 +1,12 @@
 1. Create container request:
-    ```
-    curl -XPOST "http://localhost:8002/create" -d '{"image_name": "zim95/ssh_ubuntu:latest", "container_name": "test_ssh", "container_network": "rest-container-ssh-network", "environment": "{\"SSH_PASSWORD\": \"0907namah\"}"}' -H "Content-Type: application/json"
-    ```
+    - With publish information.
+        ```
+        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "zim95/ssh_ubuntu:latest", "container_name": "test_ssh", "container_network": "rest-container-ssh-network", "publish_information": "{\"22\/tcp\": 2222}", "environment": "{\"SSH_PASSWORD\": \"0907namah\"}"}' -H "Content-Type: application/json"
+        ```
+    - Without publish information.
+        ```
+        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "zim95/ssh_ubuntu:latest", "container_name": "test_ssh", "container_network": "rest-container-ssh-network", "environment": "{\"SSH_PASSWORD\": \"0907namah\"}"}' -H "Content-Type: application/json"
+        ```
 
 2. Start container request:
     ```
