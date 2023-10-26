@@ -1,2 +1,3 @@
 SUPPORTED_ENVIRONMENTS: list = ["docker", "kubernetes"]
-BROWSETERM_DOCKER_NETWORK: str = "browseterm-network"
+RC_DOCKER_NETWORK: str = "rc-network"
+RC_KUBERNETES_NAMESPACE: str = "rc-namespace"

@@ -1,32 +1,45 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: browseterm-rest
+  name: rest-container
 spec:
   replicas: 3 # Adjust the number of replicas as needed
   selector:
     matchLabels:
-      app: browseterm-rest
+      app: rest-container
   template:
     metadata:
       labels:
-        app: browseterm-rest
+        app: rest-container
     spec:
       containers:
-      - name: browseterm-rest
-        image: zim95/browseterm-rest:latest
+      - name: rest-container
+        image: zim95/rest-container:latest
         ports:
         - containerPort: 8002
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: browseterm-rest-service
+  name: rest-container-api-service
 spec:
   selector:
-    app: browseterm-rest
+    app: rest-container
   ports:
   - protocol: TCP
     port: 8002
     targetPort: 8002
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rest-container-api-debug-service
+spec:
+  selector:
+    app: rest-container
+  ports:
+  - protocol: TCP
+    port: 8003
+    targetPort: 8003
   type: LoadBalancer

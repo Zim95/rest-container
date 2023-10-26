@@ -3,7 +3,9 @@ import os
 import abc
 # third-party
 import docker
-import kubernetes
+import kubernetes.client as kcli
+import kubernetes.config as kconf
+import kubernetes.client.rest as k8s_rest
 # modules
 import src.constants as constants
 import src.exceptions as exceptions
@@ -30,20 +32,26 @@ class ContainerManager:
         :params:
             :image_name: str: Supported image name. e.g. ubuntu
             :container_name: str: Name of the container.
-            :container_password: str: Password of the container.
-                                      Required for sudo commands as well.
-
+            :container_network: str: Name of the network in which the container is deployed.
+                                     There should be some default value for this for each
+                                     container environment.
+            :environment: Environment variables as a dictionary.
         Author: Namah Shrestha
         """
         self.image_name: str = image_name
         self.container_name: str = container_name
-        self.container_network: str = constants.BROWSETERM_DOCKER_NETWORK if not \
-            container_network else container_network
+        self.container_network: str = container_network
         self.environment: dict = environment
 
-    @abc.abstractmethod
-    def create_network(self) -> dict:
-        pass
+    @classmethod
+    def check_client(cls) -> None:
+        if cls.client is None:
+            client_is_none: str = (
+                "The client is None. "
+                "This happens when the methods of a different container manager is called "
+                "than the runtime environment"
+            )
+            raise exceptions.ContainerClientNotResolved(client_is_none)
 
     @abc.abstractmethod
     def create_container(self) -> dict:
@@ -84,19 +92,12 @@ class DockerContainerManager(ContainerManager):
             container_network=container_network,
             environment=environment
         )
-
-    @classmethod
-    def check_client(cls) -> None:
-        if cls.client is None:
-            client_is_none: str = (
-                "The client is None. "
-                "This happens when the methods of a different container manager is called "
-                "than the runtime environment"
-            )
-            raise exceptions.ContainerClientNotResolved(client_is_none)
+        if not self.container_network:
+            container_network = constants.RC_DOCKER_NETWORK
 
     def create_network(self) -> dict:
         try:
+            self.check_client()
             existing_networks: list = self.client.networks.list(names=[self.container_network])
             if not existing_networks:
                 # Network does not exist, so create it
@@ -113,7 +114,7 @@ class DockerContainerManager(ContainerManager):
             container_options: dict = {
                 "image": self.image_name,
                 "name": self.container_name,
-                "network": constants.BROWSETERM_DOCKER_NETWORK,
+                "network": self.container_network,
                 "detach": True,
                 "ports": {
                     "22/tcp": 2222,
@@ -131,16 +132,15 @@ class DockerContainerManager(ContainerManager):
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    @classmethod
-    def start_container(cls, container_id: str) -> dict:
+    def start_container(self, container_id: str) -> dict:
         try:
-            cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
+            self.check_client()
+            container = self.client.containers.get(container_id=container_id)
             container.start()
             container.reload()
             ip_address: str = container.attrs[
                     'NetworkSettings']['Networks'][
-                        constants.BROWSETERM_DOCKER_NETWORK]['IPAddress']
+                        self.container_network]['IPAddress']
             if not ip_address:
                 raise exceptions.ContainerIpUnresolved(
                     "Containers ip address is not resolved."
@@ -154,11 +154,10 @@ class DockerContainerManager(ContainerManager):
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    @classmethod
-    def stop_container(cls, container_id: str) -> dict:
+    def stop_container(self, container_id: str) -> dict:
         try:
-            cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
+            self.check_client()
+            container = self.client.containers.get(container_id=container_id)
             container.stop()
             return {"container_id": container.id, "status": "stopped"}
         except docker.errors.DockerException as de:
@@ -166,11 +165,10 @@ class DockerContainerManager(ContainerManager):
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    @classmethod
-    def delete_container(cls, container_id: str) -> dict:
+    def delete_container(self, container_id: str) -> dict:
         try:
-            cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
+            self.check_client()
+            container = self.client.containers.get(container_id=container_id)
             container.remove()
             return {"container_id": container.id, "status": "deleted"}
         except docker.errors.DockerException as de:
@@ -186,6 +184,11 @@ class KubernetesContainerManager(ContainerManager):
 
     Author: Namah Shrestha
     """
+    if utils.get_runtime_environment() == "kubernetes":
+        kconf.load_kube_config()
+        client = kcli.CoreV1Api()
+    else:
+        client = None
     def __init__(
         self,
         image_name: str,
@@ -199,7 +202,41 @@ class KubernetesContainerManager(ContainerManager):
             container_network=container_network,
             environment=environment
         )
+        if not self.container_network:
+            self.container_network = constants.RC_KUBERNETES_NAMESPACE
 
+    def create_namespace(self) -> dict:
+        """
+        Create a namespace in kubernetes. The container network provided
+        will serve as the namespace. The policy has been created such that,
+        one namespace is cannot interact with the other. This is done through
+        V1NetworkPolicyIngressRule.
+
+        Author: Namah Shrestha
+        """
+        try:
+            self.check_client()
+            namespaces: list = self.client.list_namespace()
+            namespace_exists: bool = any([ns.metadata.name == self.container_network for ns in namespaces])
+            if not namespace_exists:
+                namespace = kcli.V1Namespace(
+                    metadata=kcli.V1ObjectMeta(name=self.container_network)
+                )
+                self.client.create_namespace(namespace)
+                network_policy = kcli.V1NetworkPolicy(
+                    metadata={"name": "deny-from-other-namespaces"},
+                    spec={
+                        "podSelector": {},
+                        "policyTypes": ["Ingress"],
+                        "ingress": [kcli.V1NetworkPolicyIngressRule(from_=[{}])]
+                    }
+                )
+                networking_api = kcli.NetworkingV1Api()
+                networking_api.create_namespaced_network_policy(self.container_network, network_policy)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
 
 ENV_CONTAINER_MGR_MAPPING: dict = {
     "docker": DockerContainerManager,
