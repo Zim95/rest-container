@@ -27,3 +27,5 @@ Refactor:
 ----------
 1. Get runtime env to work for both docker and k8s
 2. Do not take cnenv from request. Rather, select the env on your own.
+3. Get the optional keys from the request. Make them have default values.
+    - For example, publish and environment details may not be present.

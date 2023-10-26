@@ -64,7 +64,7 @@ class ContainerManager:
 
     @classmethod
     @abc.abstractmethod
-    def start_container(cls, container_id: str) -> dict:
+    def start_container(cls, container_id: str, container_network: str) -> dict:
         pass
 
     @classmethod
@@ -93,7 +93,7 @@ class DockerContainerManager(ContainerManager):
             environment=environment
         )
         if not self.container_network:
-            container_network = constants.RC_DOCKER_NETWORK
+            self.container_network = constants.RC_DOCKER_NETWORK
 
     def create_network(self) -> dict:
         try:
@@ -126,21 +126,22 @@ class DockerContainerManager(ContainerManager):
             }
             # TODO: Remove ports
             container = self.client.containers.create(**container_options)
-            return {"container_id": container.id}
+            return {"container_id": container.id, "container_network": self.container_network}
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    def start_container(self, container_id: str) -> dict:
+    @classmethod
+    def start_container(cls, container_id: str, container_network: str) -> dict:
         try:
-            self.check_client()
-            container = self.client.containers.get(container_id=container_id)
+            cls.check_client()
+            container = cls.client.containers.get(container_id=container_id)
             container.start()
             container.reload()
             ip_address: str = container.attrs[
                     'NetworkSettings']['Networks'][
-                        self.container_network]['IPAddress']
+                        container_network]['IPAddress']
             if not ip_address:
                 raise exceptions.ContainerIpUnresolved(
                     "Containers ip address is not resolved."
@@ -154,10 +155,11 @@ class DockerContainerManager(ContainerManager):
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    def stop_container(self, container_id: str) -> dict:
+    @classmethod
+    def stop_container(cls, container_id: str) -> dict:
         try:
-            self.check_client()
-            container = self.client.containers.get(container_id=container_id)
+            cls.check_client()
+            container = cls.client.containers.get(container_id=container_id)
             container.stop()
             return {"container_id": container.id, "status": "stopped"}
         except docker.errors.DockerException as de:
@@ -165,10 +167,11 @@ class DockerContainerManager(ContainerManager):
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
-    def delete_container(self, container_id: str) -> dict:
+    @classmethod
+    def delete_container(cls, container_id: str) -> dict:
         try:
-            self.check_client()
-            container = self.client.containers.get(container_id=container_id)
+            cls.check_client()
+            container = cls.client.containers.get(container_id=container_id)
             container.remove()
             return {"container_id": container.id, "status": "deleted"}
         except docker.errors.DockerException as de:

@@ -208,7 +208,7 @@ class ReadyContainerHandler(ContainerHandler):
         super().__init__(request_params)
 
     @abc.abstractmethod
-    def calling_method(self, container_id: str) -> dict:
+    def calling_method(self, **container_payload: dict) -> dict:
         """
         Either start, stop or delete. The container should be created prior.
         """
@@ -225,8 +225,7 @@ class ReadyContainerHandler(ContainerHandler):
         try:
             super().handle()
             container_payload: dict = self.json_load(self.request_params, "payload")
-            container_id: str = container_payload.get("container_id", "")
-            return self.calling_method(container_id=container_id)
+            return self.calling_method(**container_payload)
         except exceptions.UnsupportedRuntimeEnvironment as e:
             return {
                 "unsupported_runtime_env_error": str(e),
@@ -246,11 +245,17 @@ class StartContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, container_id: str) -> dict:
+    def calling_method(self, **container_payload: dict) -> dict:
         try:
+            container_id: str = container_payload["container_id"]
+            container_network: str = container_payload["container_network"]
             response: dict = self.container_manager.start_container(
-                container_id=container_id)
+                container_id=container_id,
+                container_network=container_network
+            )
             return response
+        except KeyError as ke:
+            raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
 
@@ -260,11 +265,14 @@ class StopContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, container_id: str) -> dict:
+    def calling_method(self, **container_payload: dict) -> dict:
         try:
+            container_id: str = container_payload["container_id"]
             response: dict = self.container_manager.stop_container(
                 container_id=container_id)
             return response
+        except KeyError as ke:
+            raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
 
@@ -274,10 +282,13 @@ class DeleteContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, container_id: str) -> dict:
+    def calling_method(self, **container_payload: dict) -> dict:
         try:
+            container_id: str = container_payload["container_id"]
             response: dict = self.container_manager.delete_container(
                 container_id=container_id)
             return response
+        except KeyError as ke:
+            raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)

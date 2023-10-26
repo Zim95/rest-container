@@ -18,19 +18,22 @@ Currently supported:
     ```
 NOTE: All the commands in Makefile do not work as intended. This is being fixed.
 
-# Docker Related Requests
-- Once the code has run on docker you may use the following requests.
+# API Requests
+- The API Requests will create/stop/start/delete containers on which ever environment they are run on.
+- For example,
+    - If the container is run on docker, these APIs will create/start/stop/delete docker containers.
+- Here are the requests.
     1. Create container request:
         ```
         curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<optional, enter a network name>", "environment": "{\"keya\": \"valuea\"}"
         }' -H "Content-Type: application/json"
         ```
 
-        The response will include a `container_id` which can be used with the next requests.
+        The response will include a `container_id` and `container_network` which can be used with the next requests.
 
     2. Start container request:
         ```
-        curl -XPOST "http://localhost:8002/start" -d '{"container_id": "<container-id>"}' -H "Content-Type: application/json"
+        curl -XPOST "http://localhost:8002/start" -d '{"container_id": "<container-id>","container_network": "<container_network>"}' -H "Content-Type: application/json"
         ```
 
     3. Stop container request:
