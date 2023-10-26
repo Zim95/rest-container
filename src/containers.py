@@ -63,25 +63,58 @@ class ContainerManager:
 
     @abc.abstractmethod
     def create_container(self) -> dict:
-        pass
+        """
+        Contains logic on how to create a container in the specific environment.
 
-    @classmethod
-    @abc.abstractmethod
-    def stop_container(cls, container_id: str) -> dict:
+        Author: Namah Shrestha
+        """
         pass
 
     @classmethod
     @abc.abstractmethod
     def start_container(cls, container_id: str, container_network: str) -> dict:
+        """
+        Contains logic on how to start a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def stop_container(cls, container_id: str) -> dict:
+        """
+        Contains logic on how to stop a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
         pass
 
     @classmethod
     @abc.abstractmethod
     def delete_container(cls, container_id: str) -> dict:
+        """
+        Contains logic on how to delete a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
         pass
 
 
 class DockerContainerManager(ContainerManager):
+    """
+    Docker Container Related methods.
+
+    Author: Namah Shrestha
+    """
+
+    """ 
+    Update the client if the runtime environment is docker.
+    This means, the client will be set if the application is running inside docker.
+    Otherwise, it will be None.
+
+    Author: Namah Shrestha
+    """
     if utils.get_runtime_environment() == "docker":
         client = docker.from_env()
     else:
@@ -95,6 +128,12 @@ class DockerContainerManager(ContainerManager):
         publish_information: dict = {},
         environment: dict = {},
     ) -> None:
+        """
+        Initialize parameters by calling the super method.
+        Set default value for container_network if not provided.
+
+        Author: Namah Shrestha
+        """
         super().__init__(
             image_name,
             container_name,
@@ -105,7 +144,14 @@ class DockerContainerManager(ContainerManager):
         if not self.container_network:
             self.container_network = constants.RC_DOCKER_NETWORK
 
-    def create_network(self) -> dict:
+    def create_network(self) -> None:
+        """
+        Create a docker network if it does not exist.
+        Otherwise ignore the network creation.
+        Do not raise errors if network does not exist.
+
+        Author: Namah Shrestha
+        """
         try:
             self.check_client()
             existing_networks: list = self.client.networks.list(names=[self.container_network])
@@ -118,6 +164,12 @@ class DockerContainerManager(ContainerManager):
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     def create_container(self) -> dict:
+        """
+        Create a docker container based on all the parameters.
+        returns: dict: {'container_id': <container_id>, 'container_network': <container_network>}
+
+        Author: Namah Shrestha
+        """
         try:
             self.check_client()
             self.create_network()
@@ -142,6 +194,18 @@ class DockerContainerManager(ContainerManager):
 
     @classmethod
     def start_container(cls, container_id: str, container_network: str) -> dict:
+        '''
+        Start the container based on parameters.
+        The container needs to be created for the id to exist.
+        So this method only works if the container is created.
+        :params:
+            :container_id: str: Id of the container.
+            :container_network: str: Name of the network in which
+                                     the container is deployed in.
+        :returns: dict: {'container_id': <container_id>, 'container_ip': <container_ip_address>}
+
+        Author: Namah Shrestha
+        '''
         try:
             cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
@@ -165,6 +229,17 @@ class DockerContainerManager(ContainerManager):
 
     @classmethod
     def stop_container(cls, container_id: str) -> dict:
+        """
+        Stop the container based on the parameters.
+        The container needs to be created for the id to exist.
+        So this method only works if the container is created.
+        Will raise errors if the container is not started.
+        :params:
+            :container_id: str: Id of the container.
+        :returns: dict: {'container_id': <container_id>, "status": "stopped"}
+
+        Author: Namah Shrestha
+        """
         try:
             cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
@@ -177,6 +252,17 @@ class DockerContainerManager(ContainerManager):
 
     @classmethod
     def delete_container(cls, container_id: str) -> dict:
+        """
+        Delete the container based on the parameters.
+        The container needs to be created for the id to exist.
+        So this method only works if the container is created.
+        Will raise errors if the container is not started.
+        :params:
+            :container_id: str: Id of the container.
+        :returns: dict: {'container_id': <container_id>, "status": "deleted"}
+
+        Author: Namah Shrestha
+        """
         try:
             cls.check_client()
             container = cls.client.containers.get(container_id=container_id)
