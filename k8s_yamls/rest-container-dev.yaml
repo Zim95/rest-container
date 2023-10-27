@@ -4,32 +4,26 @@ metadata:
   name: rc-namespace
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   namespace: rc-namespace # Replace with the correct namespace
   name: create-list-namespaces-role
 rules:
 - apiGroups: [""]
-  resources: ["namespaces"]
-  verbs: ["list", "create"]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: rc-service-account
-  namespace: rc-namespace
+  resources: ["namespaces", "pods"]
+  verbs: ["list", "create", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: create-list-namespaces-binding
   namespace: rc-namespace # Replace with the correct namespace
 subjects:
 - kind: ServiceAccount
-  name: rc-service-account
+  name: default
   namespace: rc-namespace
 roleRef:
-  kind: Role
+  kind: ClusterRole
   name: create-list-namespaces-role
   apiGroup: rbac.authorization.k8s.io
 ---
@@ -48,7 +42,6 @@ spec:
       labels:
         app: rest-container
     spec:
-      serviceAccountName: rc-service-account
       containers:
       - name: rest-container
         image: zim95/rest-container:latest
