@@ -290,7 +290,8 @@ class KubernetesContainerManager(ContainerManager):
     Author: Namah Shrestha
     """
     if utils.get_runtime_environment() == "kubernetes":
-        kconf.load_kube_config()
+        # kconf.load_kube_config()  # Causes errors when running inside kubernetes
+        kconf.load_incluster_config()  # For incluster configurations
         client = kcli.CoreV1Api()
     else:
         client = None
