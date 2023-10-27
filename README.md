@@ -4,6 +4,7 @@ Currently supported:
 1. Docker
 2. Kubernetes
 
+
 # Run on Docker
 - PreRequisites:
     - Make sure `docker` is installed.
@@ -17,6 +18,7 @@ Currently supported:
     make dockerrun    
     ```
 NOTE: All the commands in Makefile do not work as intended. This is being fixed.
+
 
 # Debug on Docker
 - PreRequisites:
@@ -35,6 +37,7 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
 - Now make the API Requests to port `8003`.
 - You can also use the debugger, `import pdb; pdb.set_trace()` or `breakpoint()` to
     debug parts of your code.
+
 
 # Run on kubernetes
 - PreRequisites:
@@ -62,6 +65,7 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
     curl -XGET 'http://localhost:8002/ping'
     ```
     You should get a ping response back.
+
 
 # Debug on kubernetes
 - PreRequisites:
