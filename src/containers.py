@@ -165,7 +165,7 @@ class DockerContainerManager(ContainerManager):
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
-    def delete_network(cls) -> None:
+    def delete_network(cls, container_network: str) -> None:
         """
         TODO: A method to delete an existing network.
         """
@@ -329,7 +329,7 @@ class KubernetesContainerManager(ContainerManager):
             self.container_network = constants.RC_KUBERNETES_NAMESPACE
 
     @classmethod
-    def create_namespace(cls, namespace_name: str) -> dict:
+    def create_namespace(cls, namespace_name: str) -> None:
         """
         Create a namespace in kubernetes.
         The container network provided will serve as the namespace.
@@ -362,6 +362,89 @@ class KubernetesContainerManager(ContainerManager):
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
+    @classmethod
+    def delete_namespace(cls, namespace_name: str) -> None:
+        """
+        TODO: Create delete namespace method.
+        """
+        pass
+
+    @classmethod
+    def create_service(
+        cls,
+        service_name: str,
+        app_name: str,
+        port: int,
+        target_port: int,
+        namespace: str,
+    ) -> None:
+        service_manifest = kcli.V1Service(
+            metadata=kcli.V1ObjectMeta(name=service_name),
+            spec=kcli.V1ServiceSpec(
+                selector={"app": app_name},
+                ports=[kcli.V1ServicePort(port=port, target_port=target_port)],
+                type="LoadBalancer"
+            )
+        )
+        cls.client.create_namespaced_service(namespace, service_manifest)
+
+    def create_container(self) -> dict:
+        """
+        Create a kubernetes container based on all the parameters.
+        1. Create a namespace if it does not exist.
+        2. Create a pod with the configurations.
+        3. For each publish_information create a service.
+
+        returns: dict: {'container_id': <container_id>, 'container_network': <container_network>}
+
+        Author: Namah Shrestha
+        """
+        pod_manifest = kcli.V1Pod(
+            metadata=kcli.V1ObjectMeta(name=self.container_name),
+            spec=kcli.V1PodSpec(
+                containers=[
+                    kcli.V1Container(
+                        name=self.container_name,
+                        image=self.image_name,
+                        ports=[kcli.V1ContainerPort(container_port=80)]
+                    )
+                ]
+            )
+        )
+
+        # Create the Pod in the "default" namespace
+        self.client.create_namespaced_pod(self.container_network, pod_manifest)
+
+    @classmethod
+    def start_container(cls, container_id: str, container_network: str) -> dict:
+        """
+        Contains logic on how to start a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
+        pass
+
+    @classmethod
+    def stop_container(cls, container_id: str) -> dict:
+        """
+        Contains logic on how to stop a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
+        pass
+
+    @classmethod
+    def delete_container(cls, container_id: str) -> dict:
+        """
+        Contains logic on how to delete a container in the specific environment.
+
+        Author: Namah Shrestha
+        """
+        pass
+
 
 ENV_CONTAINER_MGR_MAPPING: dict = {
     "docker": DockerContainerManager,
