@@ -144,7 +144,8 @@ class DockerContainerManager(ContainerManager):
         if not self.container_network:
             self.container_network = constants.RC_DOCKER_NETWORK
 
-    def create_network(self) -> None:
+    @classmethod
+    def create_network(cls, container_network: str) -> None:
         """
         Create a docker network if it does not exist.
         Otherwise ignore the network creation.
@@ -153,15 +154,22 @@ class DockerContainerManager(ContainerManager):
         Author: Namah Shrestha
         """
         try:
-            self.check_client()
-            existing_networks: list = self.client.networks.list(names=[self.container_network])
+            cls.check_client()
+            existing_networks: list = cls.client.networks.list(names=[container_network])
             if not existing_networks:
                 # Network does not exist, so create it
-                self.client.networks.create(self.container_network)
+                cls.client.networks.create(container_network)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
+
+    @classmethod
+    def delete_network(cls) -> None:
+        """
+        TODO: A method to delete an existing network.
+        """
+        pass
 
     def create_container(self) -> dict:
         """
@@ -172,7 +180,7 @@ class DockerContainerManager(ContainerManager):
         """
         try:
             self.check_client()
-            self.create_network()
+            self.create_network(self.container_network)
             container_options: dict = {
                 "image": self.image_name,
                 "name": self.container_name,
@@ -320,7 +328,8 @@ class KubernetesContainerManager(ContainerManager):
         if not self.container_network:
             self.container_network = constants.RC_KUBERNETES_NAMESPACE
 
-    def create_namespace(self) -> dict:
+    @classmethod
+    def create_namespace(cls, namespace_name: str) -> dict:
         """
         Create a namespace in kubernetes.
         The container network provided will serve as the namespace.
@@ -331,24 +340,24 @@ class KubernetesContainerManager(ContainerManager):
         Author: Namah Shrestha
         """
         try:
-            self.check_client()
-            namespaces: list = self.client.list_namespace()
-            namespace_exists: bool = any([ns.metadata.name == self.container_network for ns in namespaces])
+            cls.check_client()
+            namespaces: list = cls.client.list_namespace()
+            namespace_exists: bool = any([ns.metadata.name == namespace_name for ns in namespaces.items])
             if not namespace_exists:
                 namespace = kcli.V1Namespace(
-                    metadata=kcli.V1ObjectMeta(name=self.container_network)
+                    metadata=kcli.V1ObjectMeta(name=namespace_name)
                 )
-                self.client.create_namespace(namespace)
+                cls.client.create_namespace(namespace)
                 network_policy = kcli.V1NetworkPolicy(
                     metadata={"name": "deny-from-other-namespaces"},
                     spec={
                         "podSelector": {},
                         "policyTypes": ["Ingress"],
-                        "ingress": [kcli.V1NetworkPolicyIngressRule(from_=[{}])]
+                        "ingress": [kcli.V1NetworkPolicyIngressRule(_from=None)]
                     }
                 )
                 networking_api = kcli.NetworkingV1Api()
-                networking_api.create_namespaced_network_policy(self.container_network, network_policy)
+                networking_api.create_namespaced_network_policy(namespace_name, network_policy)
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
