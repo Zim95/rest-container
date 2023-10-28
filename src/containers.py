@@ -772,19 +772,51 @@ class KubernetesContainerManager(ContainerManager):
             :container_network: str: Network of the container
         :returns: list[dict]:
             [
-                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
-                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
                 ...
             ]
-        NOTE: Stop is not supported in kubernetes. It calls delete container.
+        NOTE: Stop is not supported in kubernetes. It calls `delete_container`.
     
         Author: Namah Shrestha
         """
-        pass
-        # return {
-        #     "container_id": container_id,
-        #     "status": "Stop not supported for kubernetes, Use delete."
-        # }
+        try:
+            return cls.delete_container(
+                container_ids=container_ids,
+                container_network=container_network,
+            )
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
+    @classmethod
+    def get_pods_for_service(cls, service_name: str, namespace: str) -> list[str]:
+        """
+        Get all the pods for a service.
+        :params:
+            :service_name: str: Service name.
+            :namespace: str: Namespace of the service.
+        :returns:
+            list[str]: names of pods associated with the service.
+
+        Author: Namah Shrestha
+        """
+        try:
+            endpoints = cls.client.list_namespaced_endpoints(namespace=namespace)
+            for endpoint in endpoints.items:
+                if endpoint.metadata.name == service_name:
+                    pods: list = []
+                    for subset in endpoint.subsets:
+                        for address in subset.addresses:
+                            pods.append(address.target_ref.name)
+                    return pods
+            return []
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return []
 
     @classmethod
     def delete_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
@@ -813,19 +845,62 @@ class KubernetesContainerManager(ContainerManager):
             # Get Pod IDs in the namespace
             pod_list = cls.client.list_namespaced_pod(namespace=container_network)
             pod_ids: list = []
-            pod_ids_ip_map: dict = {}
+            pod_ids_name_map: dict = {}
             for pod in pod_list.items:
                 pod_ids.append(pod.metadata.uid)
-                pod_ids_ip_map[pod.metadata.uid] = pod.status.pod_ip
+                pod_ids_name_map[pod.metadata.uid] = pod.metadata.name
 
             # Get Service IDs in the namespace
             service_list = cls.client.list_namespaced_service(namespace=container_network)
             service_ids: list = []
-            service_ids_ip_map: dict = {}
+            service_ids_name_map: dict = {}
             for service in service_list.items:
                 service_ids.append(service.metadata.uid)
-                service_ids_ip_map[service.metadata.uid] = service.spec.cluster_ip
+                service_ids_name_map[service.metadata.uid] = service.metadata.name
+            
+            delete_container_results: list = []
+            pods_to_delete: set = set()
+            services_to_delete: set = set()
+            for container_id in container_ids:
+                if container_id in pod_ids:
+                    # If we are getting pod ids it means we dont have services.
+                    # So just delete the pod and thats it.
+                    # Put it on the list of pods to delete.
+                    pod_name: str = pod_ids_name_map[container_id]
+                    pods_to_delete.add((pod_name, container_id))
+                elif container_id in service_ids:
+                    # Get associated pods and put them on the list of pods to delete.
+                    # Put the service name on services to be deleted.
+                    service_name: str = service_ids_name_map[container_id]
+                    services_to_delete.add((service_name, container_id))
+                    pod_names: list = cls.get_pods_for_service(
+                        service_name=service_name,
+                        namespace=container_network,
+                    )
+                    for pod_name in pod_names:
+                        pods_to_delete.add((pod_name, container_id))
 
+            # delete all the pods
+            for pod_to_delete in pods_to_delete:
+                cls.client.delete_namespaced_pod(name=pod_to_delete[0], namespace=container_network)
+                delete_container_results.append(
+                    {
+                        "container_id": pod_to_delete[1],
+                        "container_network": container_network,
+                        "status": "deleted pod"
+                    }
+                )
+            # delete all the services
+            for service_to_delete in services_to_delete:
+                cls.client.delete_namespaced_service(name=service_to_delete[0], namespace=container_network)
+                delete_container_results.append(
+                    {
+                        "container_id": pod_to_delete[1],
+                        "container_network": container_network,
+                        "status": "deleted service"
+                    }
+                )
+            return delete_container_results
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
