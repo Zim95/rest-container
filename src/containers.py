@@ -531,7 +531,7 @@ class KubernetesContainerManager(ContainerManager):
                     name=self.container_name,
                     namespace=self.container_network,
                 )
-                container_ip: str = namespaced_pod.status.pod_ip
+                container_id: str = namespaced_pod.metadata.uid
             else:
                 # get service ip and return that
                 namespaced_service = self.client.read_namespaced_service(
@@ -540,9 +540,9 @@ class KubernetesContainerManager(ContainerManager):
                 )
                 # we are using service-0 because there will be atleast 1 service, if it is there.
                 # and that single service will have an index of 0.
-                container_ip: str = namespaced_service.spec.cluster_ip
+                container_id: str = namespaced_service.metadata.uid
             return {
-                "container_id": container_ip,
+                "container_id": container_id,
                 "container_network": self.container_network,
             }
         except k8s_rest.ApiException as ka:
@@ -555,25 +555,45 @@ class KubernetesContainerManager(ContainerManager):
     @classmethod
     def start_container(cls, container_id: str, container_network: str) -> dict:
         """
-        Contains logic on how to start a container in the specific environment.
+        Start is not supported for kubernetes.
+        However, what start gets is container_id and what it needs to return is
+        container_ip.
+        The container_id it received can be either a pod or a service.
+        We need to figure that out and then return the ip accordingly.
+        1. Figure out whether the container_id is a pod id or a service id.
+            - list all services within container_network.
+            - list all pods within container_network.
+            - Check each of their metadata.uid and see if it matches.
+        2. Fetch the resource.
+        3. Return the ip address accordingly.
 
         Author: Namah Shrestha
         """
-        pass
+
+        return {
+            "container_id": container_id,
+            "container_ip": "",
+        }
 
     @classmethod
     def stop_container(cls, container_id: str) -> dict:
         """
-        Contains logic on how to stop a container in the specific environment.
+        Stop is not supported for kubernetes.
 
         Author: Namah Shrestha
         """
-        pass
+        return {
+            "container_id": container_id,
+            "status": "Stop not supported for kubernetes, Use delete."
+        }
 
     @classmethod
     def delete_container(cls, container_id: str) -> dict:
         """
-        Contains logic on how to delete a container in the specific environment.
+        The delete container will recieve a container_id.
+        This container_id can be a service id or a pod id.
+        Also, delete container does not get a namespace, so we need to know
+        which namespace the pod or the service belongs to.
 
         Author: Namah Shrestha
         """
