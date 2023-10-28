@@ -72,7 +72,7 @@ class ContainerManager:
 
     @classmethod
     @abc.abstractmethod
-    def start_container(cls, container_id: str, container_network: str) -> dict:
+    def start_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Contains logic on how to start a container in the specific environment.
 
@@ -667,28 +667,68 @@ class KubernetesContainerManager(ContainerManager):
         except Exception as e:
             raise Exception(e)
 
-    # @classmethod
-    # def start_container(cls, container_id: str, container_network: str) -> dict:
-    #     """
-    #     Start is not supported for kubernetes.
-    #     However, what start gets is container_id and what it needs to return is
-    #     container_ip.
-    #     The container_id it received can be either a pod or a service.
-    #     We need to figure that out and then return the ip accordingly.
-    #     1. Figure out whether the container_id is a pod id or a service id.
-    #         - list all services within container_network.
-    #         - list all pods within container_network.
-    #         - Check each of their metadata.uid and see if it matches.
-    #     2. Fetch the resource.
-    #     3. Return the ip address accordingly.
+    @classmethod
+    def start_container(cls, container_ids: list[str], container_network: str) -> dict:
+        '''
+        Start the containers based on parameters.
+        In kubernetes, the containers are already started from the create method.
+        All we need to do, here is obtain the ip address and return it.
+        The thing here is, the container_ids are either pods or services.
+        We need to figure that out first and then get their ip addresses.
 
-    #     Author: Namah Shrestha
-    #     """
+        :params:
+            :container_ids: list[str]: List of container ids to start.
+            :container_network: str: Name of the network in which
+                                     the container is deployed in.
+                                     In case of kubernetes, this is the namespace.
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_ip': <container_ip_address>},
+                {'container_id': <container_id>, 'container_ip': <container_ip_address>},
+                ...
+            ]
+        Author: Namah Shrestha
+        '''
+        try:
+            # Get Pod IDs in the namespace
+            pod_list = cls.client.list_namespaced_pod(namespace=container_network)
+            pod_ids: list = []
+            pod_ids_ip_map: dict = {}
+            for pod in pod_list.items:
+                pod_ids.append(pod.metadata.uid)
+                pod_ids_ip_map[pod.metadata.uid] = pod.status.pod_ip
 
-    #     return {
-    #         "container_id": container_id,
-    #         "container_ip": "",
-    #     }
+            # Get Service IDs in the namespace
+            service_list = cls.client.list_namespaced_service(namespace=container_network)
+            service_ids: list = []
+            service_ids_ip_map: dict = {}
+            for service in service_list.items:
+                service_ids.append(service.metadata.uid)
+                service_ids_ip_map[service.metadata.uid] = service.spec.cluster_ip
+
+            start_container_results: list[dict] = []
+            for container_id in container_ids:
+                if container_id in pod_ids:
+                    start_container_results.append(
+                        {
+                            'container_id': container_id,
+                            'container_ip': pod_ids_ip_map[container_id],
+                        }
+                    )
+                elif container_id in service_ids:
+                    start_container_results.append(
+                        {
+                            'container_id': container_id,
+                            'container_ip': service_ids_ip_map[container_id],
+                        }
+                    )
+            return start_container_results
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
     # @classmethod
     # def stop_container(cls, container_id: str) -> dict:
