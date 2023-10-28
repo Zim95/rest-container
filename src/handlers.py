@@ -166,8 +166,8 @@ class CreateContainerHandler(ContainerHandler):
                     image_name=container_payload.get("image_name", ""),
                     container_name=container_payload.get("container_name", ""),
                     container_network=container_payload.get("container_network", ""),
-                    publish_information=self.json_load(container_payload, "publish_information"),
-                    environment=self.json_load(container_payload, "environment"),
+                    publish_information=container_payload.get("publish_information", {}),
+                    environment=container_payload.get("environment", {}),
                 )
             response: dict = container_manager_object.create_container()
             return response
