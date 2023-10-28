@@ -82,7 +82,7 @@ class ContainerManager:
 
     @classmethod
     @abc.abstractmethod
-    def stop_container(cls, container_id: str) -> dict:
+    def stop_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Contains logic on how to stop a container in the specific environment.
 
@@ -92,7 +92,7 @@ class ContainerManager:
 
     @classmethod
     @abc.abstractmethod
-    def delete_container(cls, container_id: str) -> dict:
+    def delete_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Contains logic on how to delete a container in the specific environment.
 
@@ -237,7 +237,7 @@ class DockerContainerManager(ContainerManager):
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
-    def start_container(cls, container_ids: list[str], container_network: str) -> dict:
+    def start_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         '''
         Start the containers based on parameters.
         The containers needs to be created for the id to exist.
@@ -289,46 +289,76 @@ class DockerContainerManager(ContainerManager):
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
-    def stop_container(cls, container_id: str) -> dict:
+    def stop_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Stop the container based on the parameters.
         The container needs to be created for the id to exist.
         So this method only works if the container is created.
         Will raise errors if the container is not started.
         :params:
-            :container_id: str: Id of the container.
-        :returns: dict: {'container_id': <container_id>, "status": "stopped"}
+            :container_ids: list[str]: List of container ids.
+            :container_network: str: Network of the container
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                ...
+            ]
 
         Author: Namah Shrestha
         """
         try:
             cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
-            container.stop()
-            return {"container_id": container.id, "status": "stopped"}
+            stop_container_results: list = []
+            for container_id in container_ids:
+                container = cls.client.containers.get(container_id=container_id)
+                container.stop()
+                stop_container_results.append(
+                    {
+                        "container_id": container.id,
+                        "container_network": container_network,
+                        "status": "stopped"
+                    }
+                )
+            return stop_container_results
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
-    def delete_container(cls, container_id: str) -> dict:
+    def delete_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Delete the container based on the parameters.
         The container needs to be created for the id to exist.
         So this method only works if the container is created.
         Will raise errors if the container is not started.
         :params:
-            :container_id: str: Id of the container.
-        :returns: dict: {'container_id': <container_id>, "status": "deleted"}
+            :container_ids: list[str]: List of container ids.
+            :container_network: str: Network of the container
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                ...
+            ]
 
         Author: Namah Shrestha
         """
         try:
             cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
-            container.remove()
-            return {"container_id": container.id, "status": "deleted"}
+            delete_container_results: list = []
+            for container_id in container_ids:
+                container = cls.client.containers.get(container_id=container_id)
+                container.stop()
+                delete_container_results.append(
+                    {
+                        "container_id": container.id,
+                        "container_network": container_network,
+                        "status": "deleted"
+                    }
+                )
+            return delete_container_results
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
@@ -668,7 +698,7 @@ class KubernetesContainerManager(ContainerManager):
             raise Exception(e)
 
     @classmethod
-    def start_container(cls, container_ids: list[str], container_network: str) -> dict:
+    def start_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         '''
         Start the containers based on parameters.
         In kubernetes, the containers are already started from the create method.
@@ -730,29 +760,78 @@ class KubernetesContainerManager(ContainerManager):
         except Exception as e:
             raise Exception(e)
 
-    # @classmethod
-    # def stop_container(cls, container_id: str) -> dict:
-    #     """
-    #     Stop is not supported for kubernetes.
+    @classmethod
+    def stop_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
+        """
+        Stop the container based on the parameters.
+        The container needs to be created for the id to exist.
+        So this method only works if the container is created.
+        Will raise errors if the container is not started.
+        :params:
+            :container_ids: list[str]: List of container ids.
+            :container_network: str: Network of the container
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                ...
+            ]
+        NOTE: Stop is not supported in kubernetes. It calls delete container.
+    
+        Author: Namah Shrestha
+        """
+        pass
+        # return {
+        #     "container_id": container_id,
+        #     "status": "Stop not supported for kubernetes, Use delete."
+        # }
 
-    #     Author: Namah Shrestha
-    #     """
-    #     return {
-    #         "container_id": container_id,
-    #         "status": "Stop not supported for kubernetes, Use delete."
-    #     }
+    @classmethod
+    def delete_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
+        """
+        Delete the container based on the parameters.
+        The container needs to be created for the id to exist.
+        So this method only works if the container is created.
+        Will raise errors if the container is not started.
 
-    # @classmethod
-    # def delete_container(cls, container_id: str) -> dict:
-    #     """
-    #     The delete container will recieve a container_id.
-    #     This container_id can be a service id or a pod id.
-    #     Also, delete container does not get a namespace, so we need to know
-    #     which namespace the pod or the service belongs to.
+        In kubernetes, container_ids can mean either pod or service.
+        - If pod, delete pod.
+        - If service, then delete service as well as associated pods.
+        :params:
+            :container_ids: list[str]: List of container ids.
+            :container_network: str: Network of the container
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                ...
+            ]
 
-    #     Author: Namah Shrestha
-    #     """
-    #     pass
+        Author: Namah Shrestha
+        """
+        try:
+            # Get Pod IDs in the namespace
+            pod_list = cls.client.list_namespaced_pod(namespace=container_network)
+            pod_ids: list = []
+            pod_ids_ip_map: dict = {}
+            for pod in pod_list.items:
+                pod_ids.append(pod.metadata.uid)
+                pod_ids_ip_map[pod.metadata.uid] = pod.status.pod_ip
+
+            # Get Service IDs in the namespace
+            service_list = cls.client.list_namespaced_service(namespace=container_network)
+            service_ids: list = []
+            service_ids_ip_map: dict = {}
+            for service in service_list.items:
+                service_ids.append(service.metadata.uid)
+                service_ids_ip_map[service.metadata.uid] = service.spec.cluster_ip
+
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
 
 ENV_CONTAINER_MGR_MAPPING: dict = {

@@ -22,7 +22,12 @@ Refactor:
 4. Lets implement the kubernetes logic first and then move that over to docker.
 
 
-***** Change the publish information type from dict to tuple or have a list for each service port. ***
+
 6. Return many containerid, containernetwork, containerport for each publish info in docker as well.
 7. Add wait for ip address logic in kubernetes.
 8. Add container network to stop and delete containers as well.
+
+NOTE: 
+    - Only one port can be mapped to one container port.
+    - Eg: 2222 and 2223 cannot be mapped to 22.
+    - So 2222:22 and 2223:23 should be done. 2222:22 and 2223:22 is not supported.
