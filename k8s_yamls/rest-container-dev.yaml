@@ -10,8 +10,8 @@ metadata:
   name: rc-cluster-role
 rules:
 - apiGroups: ["", "networking.k8s.io"]
-  resources: ["namespaces", "pods", "networkpolicies"]
-  verbs: ["list", "create", "delete"]
+  resources: ["namespaces", "pods", "pods/exec", "networkpolicies", "services", "endpoints", "service/status", "endpoints/status", "configmaps", "secrets"]
+  verbs: ["list", "create", "delete", "get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

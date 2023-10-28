@@ -377,19 +377,86 @@ class KubernetesContainerManager(ContainerManager):
         cls,
         service_name: str,
         app_name: str,
-        port: int,
-        target_port: int,
         namespace: str,
+        service_port: int,
+        target_port: int,
+        protocol: str,
     ) -> None:
-        service_manifest = kcli.V1Service(
-            metadata=kcli.V1ObjectMeta(name=service_name),
-            spec=kcli.V1ServiceSpec(
-                selector={"app": app_name},
-                ports=[kcli.V1ServicePort(port=port, target_port=target_port)],
-                type="LoadBalancer"
+        """
+        Create the LoadBalancer Service for the information provided.
+        :params:
+            :service_name: str: Name of the service.
+            :app_name: str: Name of the app to attach the service to.
+            :namespace: str: Namespace where the service will be created.
+            :service_port: int: The port, the service is listening to.
+            :target_port: int: The port, the container is listening to.
+            :protocol: str: The protocol of the service.
+        :returns: None
+        
+        Author: Namah Shrestha
+        """
+        try:
+            cls.check_client()
+            service_manifest = kcli.V1Service(
+                metadata=kcli.V1ObjectMeta(name=service_name),
+                spec=kcli.V1ServiceSpec(
+                    selector={"app": app_name},
+                    ports=[
+                        kcli.V1ServicePort(
+                            port=service_port,
+                            target_port=target_port,
+                            protocol=protocol,
+                        )
+                    ],
+                    type="LoadBalancer"
+                )
             )
-        )
-        cls.client.create_namespaced_service(namespace, service_manifest)
+            cls.client.create_namespaced_service(namespace, service_manifest)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
+    @classmethod
+    def create_services_for_app(
+        cls,
+        service_name: str,
+        app_name: str,
+        namespace: str,
+        publish_information_list: list,
+    ) -> None:
+        """
+        Create a list of services for publish_information_list.
+        :params:
+            service_name: str: The main name of the service.
+                               We will create service_name_1, service_name_2,...and so on.
+            app_name: str: The app to link the service to.
+            namespace: str: The namespace where the services will live.
+            publish_information_list: list:
+                    [{'service_port': <int>, 'target_port': <int>, 'protocol': <str>}, ...]
+        :returns: None
+
+        Author: Namah Shrestha
+        """
+        try:
+            cls.check_client()
+            for index, item in enumerate(publish_information_list):
+                cls.create_service(
+                    service_name=f"{service_name}-{index}",
+                    app_name=app_name,
+                    namespace=namespace,
+                    service_port=item["service_port"],
+                    target_port=item["target_port"],
+                    protocol=item["protocol"],
+                )
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
     def create_container(self) -> dict:
         """
@@ -397,26 +464,93 @@ class KubernetesContainerManager(ContainerManager):
         1. Create a namespace if it does not exist.
         2. Create a pod with the configurations.
         3. For each publish_information create a service.
+        4. For each publish_information, extract target port and use it on the pod.
 
         returns: dict: {'container_id': <container_id>, 'container_network': <container_network>}
 
         Author: Namah Shrestha
         """
-        pod_manifest = kcli.V1Pod(
-            metadata=kcli.V1ObjectMeta(name=self.container_name),
-            spec=kcli.V1PodSpec(
-                containers=[
-                    kcli.V1Container(
-                        name=self.container_name,
-                        image=self.image_name,
-                        ports=[kcli.V1ContainerPort(container_port=80)]
-                    )
-                ]
-            )
-        )
+        try:
+            self.check_client()
+            # extract publish information
+            publish_information_list: list = []
+            unique_target_ports: set = set()
+            for target_port_name, host_port in self.publish_information.items():
+                target_port, protocol = target_port_name.split("/")
+                unique_target_ports.add(int(target_port))
+                publish_information_list.append(
+                    {
+                        "service_port": host_port,
+                        "target_port": int(target_port),
+                        "protocol": protocol,
+                    }
+                )
 
-        # Create the Pod in the "default" namespace
-        self.client.create_namespaced_pod(self.container_network, pod_manifest)
+            # create environment variable list
+            env_list: list = []
+            for name, value in self.environment.items():
+                env_list.append(kcli.V1EnvVar(name=name, value=value))
+
+            # create target port list
+            target_port_list: list = []
+            for target_port in unique_target_ports:
+                target_port_list.apepnd(kcli.V1ContainerPort(container_port=target_port))
+
+            pod_manifest = kcli.V1Pod(
+                metadata=kcli.V1ObjectMeta(name=self.container_name),
+                spec=kcli.V1PodSpec(
+                    containers=[
+                        kcli.V1Container(
+                            name=self.container_name,
+                            image=self.image_name,
+                            ports=target_port_list,
+                            env=env_list,
+                        )
+                    ]
+                )
+            )
+
+            # create the namespace
+            self.create_namespace(namespace_name=self.container_network)
+            # Create the Pod in the namespace
+            self.client.create_namespaced_pod(self.container_network, pod_manifest)
+            # Create the services for the Pod
+            self.create_services_for_app(
+                service_name=f"{self.container_name}-service",
+                app_name=self.container_name,
+                namespace=self.container_network,
+                publish_information_list=publish_information_list,
+            )
+            """
+            If publish information is not provided. Then there are no services.
+            So return the pod ip. Otherwise return the service ip
+            """
+            if not self.publish_information:
+                # get pod ip and return that
+                namespaced_pod = self.client.read_namespaced_pod(
+                    name=self.container_name,
+                    namespace=self.container_network,
+                )
+                container_ip: str = namespaced_pod.status.pod_ip
+            else:
+                # get service ip and return that
+                namespaced_service = self.client.read_namespaced_service(
+                    name=f"{self.container_name}-service-0",
+                    namespace=self.container_network,
+                )
+                # we are using service-0 because there will be atleast 1 service, if it is there.
+                # and that single service will have an index of 0.
+                container_ip: str = namespaced_service.spec.cluster_ip
+            return {
+                "container_id": container_ip,
+                "container_network": self.container_network,
+            }
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
     @classmethod
     def start_container(cls, container_id: str, container_network: str) -> dict:
