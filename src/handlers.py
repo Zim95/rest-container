@@ -246,10 +246,10 @@ class StartContainerHandler(ReadyContainerHandler):
 
     def calling_method(self, **container_payload: dict) -> dict:
         try:
-            container_id: str = container_payload["container_id"]
+            container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
             response: dict = self.container_manager.start_container(
-                container_id=container_id,
+                container_ids=container_ids,
                 container_network=container_network
             )
             return response
@@ -266,10 +266,10 @@ class StopContainerHandler(ReadyContainerHandler):
 
     def calling_method(self, **container_payload: dict) -> dict:
         try:
-            container_id: str = container_payload["container_id"]
+            container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
             response: dict = self.container_manager.stop_container(
-                container_id=container_id,
+                container_ids=container_ids,
                 container_network=container_network
             )
             return response
@@ -286,10 +286,10 @@ class DeleteContainerHandler(ReadyContainerHandler):
 
     def calling_method(self, **container_payload: dict) -> dict:
         try:
-            container_id: str = container_payload["container_id"]
+            container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
             response: dict = self.container_manager.delete_container(
-                container_id=container_id,
+                container_ids=container_ids,
                 container_network=container_network
             )
             return response
