@@ -62,7 +62,7 @@ class ContainerManager:
             raise exceptions.ContainerClientNotResolved(client_is_none)
 
     @abc.abstractmethod
-    def create_container(self) -> dict:
+    def create_container(self) -> list[dict]:
         """
         Contains logic on how to create a container in the specific environment.
 
@@ -150,6 +150,7 @@ class DockerContainerManager(ContainerManager):
         Create a docker network if it does not exist.
         Otherwise ignore the network creation.
         Do not raise errors if network does not exist.
+        :params: container_network: str: Name of the container_network.
 
         Author: Namah Shrestha
         """
@@ -171,10 +172,23 @@ class DockerContainerManager(ContainerManager):
         """
         pass
 
-    def create_container(self) -> dict:
+    def create_container(self) -> list[dict]:
         """
         Create a docker container based on all the parameters.
-        returns: dict: {'container_id': <container_id>, 'container_network': <container_network>}
+        returns: list[dict]:
+            [
+                {
+                    'container_id': <container_id>,
+                    'container_network': <container_network>,
+                    'container_port': <container_port> | None,
+                },
+                {
+                    'container_id': <container_id>,
+                    'container_network': <container_network>,
+                    'container_port': <container_port> | None,
+                },
+                ...
+            ]
 
         Author: Namah Shrestha
         """
@@ -194,42 +208,81 @@ class DockerContainerManager(ContainerManager):
             }
             # TODO: Remove ports
             container = self.client.containers.create(**container_options)
-            return {"container_id": container.id, "container_network": self.container_network}
+            # if publish information is missing then, container port will be empty
+            # otherwise we return the container id and container network for each publish information.
+            # this tells the user that he/she may use any of these configurations to access the container.
+            if self.publish_information:
+                # there is publish information, meaning for each mapping, return the container info.
+                return [
+                    {
+                        "container_id": container.id,
+                        "container_network": self.container_network,
+                        "container_port": host_port,
+                    }
+                    for _, host_port in self.publish_information
+                ]
+            else:
+                # if there is no publish information, it means the user does not want any port to be mapped.
+                # in such cases, container port is empty.
+                return [
+                    {
+                        "container_id": container.id,
+                        "container_network": self.container_network,
+                        "container_port": None,
+                    }
+                ]
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
             raise exceptions.ContainerClientNotResolved(ccnr)
 
     @classmethod
-    def start_container(cls, container_id: str, container_network: str) -> dict:
+    def start_container(cls, container_ids: list[str], container_network: str) -> dict:
         '''
-        Start the container based on parameters.
-        The container needs to be created for the id to exist.
-        So this method only works if the container is created.
+        Start the containers based on parameters.
+        The containers needs to be created for the id to exist.
+        So this method only works if the containers are created.
         :params:
-            :container_id: str: Id of the container.
+            :container_ids: list[str]: List of container ids to start.
             :container_network: str: Name of the network in which
                                      the container is deployed in.
-        :returns: dict: {'container_id': <container_id>, 'container_ip': <container_ip_address>}
+        :returns: list[dict]:
+            [
+                {'container_id': <container_id>, 'container_ip': <container_ip_address>},
+                {'container_id': <container_id>, 'container_ip': <container_ip_address>},
+                ...
+            ]
+        NOTE: In case of docker, the container id will be the same, since only one container will
+              be created. So there will be only one item in list.
+              Nevertheless, we should act like there will be multiple.
+              If there are multiple publish informations then we will get the same container id
+              with different ports.
+              In this case, we need to identify the unique sets of container ids that exist within the
+              create container's response.
 
         Author: Namah Shrestha
         '''
         try:
             cls.check_client()
-            container = cls.client.containers.get(container_id=container_id)
-            container.start()
-            container.reload()
-            ip_address: str = container.attrs[
-                    'NetworkSettings']['Networks'][
-                        container_network]['IPAddress']
-            if not ip_address:
-                raise exceptions.ContainerIpUnresolved(
-                    "Containers ip address is not resolved."
+            start_container_results: list[dict] = []
+            for container_id in container_ids:
+                container = cls.client.containers.get(container_id=container_id)
+                container.start()
+                container.reload()
+                ip_address: str = container.attrs[
+                        'NetworkSettings']['Networks'][
+                            container_network]['IPAddress']
+                if not ip_address:
+                    raise exceptions.ContainerIpUnresolved(
+                        "Containers ip address is not resolved."
+                    )
+                start_container_results.append(
+                    {
+                        "container_id": container.id,
+                        "container_ip": ip_address,
+                    }
                 )
-            return {
-                "container_id": container.id,
-                "container_ip": ip_address,
-            }
+            return start_container_results
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
         except exceptions.ContainerClientNotResolved as ccnr:
@@ -381,7 +434,7 @@ class KubernetesContainerManager(ContainerManager):
         service_port: int,
         target_port: int,
         protocol: str,
-    ) -> None:
+    ) -> dict:
         """
         Create the LoadBalancer Service for the information provided.
         :params:
@@ -391,13 +444,19 @@ class KubernetesContainerManager(ContainerManager):
             :service_port: int: The port, the service is listening to.
             :target_port: int: The port, the container is listening to.
             :protocol: str: The protocol of the service.
-        :returns: None
-        
+        :returns: {
+            "service_id": service.metadata.uid,
+            "service_ip": service._spec.cluster_ip,
+            "service_name": service.metadata.name,
+            "service_namespace": namespace,
+            "service_port": service_port,
+        }
+
         Author: Namah Shrestha
         """
         try:
             cls.check_client()
-            service_manifest = kcli.V1Service(
+            service_manifest: kcli.V1Service = kcli.V1Service(
                 metadata=kcli.V1ObjectMeta(name=service_name),
                 spec=kcli.V1ServiceSpec(
                     selector={"app": app_name},
@@ -411,7 +470,14 @@ class KubernetesContainerManager(ContainerManager):
                     type="LoadBalancer"
                 )
             )
-            cls.client.create_namespaced_service(namespace, service_manifest)
+            service: kcli.V1Service = cls.client.create_namespaced_service(namespace, service_manifest)
+            return {
+                "service_id": service.metadata.uid,
+                "service_ip": service._spec.cluster_ip,
+                "service_name": service.metadata.name,
+                "service_namespace": namespace,
+                "service_port": service_port,
+            }
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
@@ -425,8 +491,8 @@ class KubernetesContainerManager(ContainerManager):
         service_name: str,
         app_name: str,
         namespace: str,
-        publish_information_list: list,
-    ) -> None:
+        service_information_list: list,
+    ) -> list[dict]:
         """
         Create a list of services for publish_information_list.
         :params:
@@ -436,21 +502,41 @@ class KubernetesContainerManager(ContainerManager):
             namespace: str: The namespace where the services will live.
             publish_information_list: list:
                     [{'service_port': <int>, 'target_port': <int>, 'protocol': <str>}, ...]
-        :returns: None
+        :returns: [
+            {
+                "service_id": service.metadata.uid,
+                "service_ip": service._spec.cluster_ip,
+                "service_name": service.metadata.name,
+                "service_namespace": namespace,
+                "service_port": service_port,
+            },
+            {
+                "service_id": service.metadata.uid,
+                "service_ip": service._spec.cluster_ip,
+                "service_name": service.metadata.name,
+                "service_namespace": namespace,
+                "service_port": service_port,
+            },
+            ....
+        ]
 
         Author: Namah Shrestha
         """
         try:
             cls.check_client()
-            for index, item in enumerate(publish_information_list):
-                cls.create_service(
-                    service_name=f"{service_name}-{index}",
-                    app_name=app_name,
-                    namespace=namespace,
-                    service_port=item["service_port"],
-                    target_port=item["target_port"],
-                    protocol=item["protocol"],
+            service_list: list = []
+            for index, item in enumerate(service_information_list):
+                service_list.append(
+                    cls.create_service(
+                        service_name=f"{service_name}-{index}",
+                        app_name=app_name,
+                        namespace=namespace,
+                        service_port=item["service_port"],
+                        target_port=item["target_port"],
+                        protocol=item["protocol"],
+                    )
                 )
+            return service_list
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
@@ -458,45 +544,77 @@ class KubernetesContainerManager(ContainerManager):
         except Exception as e:
             raise Exception(e)
 
-    def create_container(self) -> dict:
+    @classmethod
+    def extract_publish_information(self, publish_information: dict) -> tuple[set, list[dict]]:
+        """
+        Extract unique target ports and service related information from
+        publish_information.
+        :params:
+            publish_information: dict: {'<containerport>/<protocol>': <hostport>, ...}
+        :returns:
+            (target_ports: set, service_information_list: list[dict])
+
+        Author: Namah Shrestha
+        """
+        unique_target_ports: set = set()
+        service_information_list: list[dict] = []
+        for target_port_name, service_port in publish_information.items():
+            target_port, protocol = target_port_name.split("/")
+            unique_target_ports.add(int(target_port))
+            service_information_list.append(
+                {
+                    "service_port": service_port,
+                    "target_port": int(target_port),
+                    "protocol": protocol.upper(),
+                }
+            )
+        return unique_target_ports, service_information_list
+
+    def create_container(self) -> list[dict]:
         """
         Create a kubernetes container based on all the parameters.
-        1. Create a namespace if it does not exist.
-        2. Create a pod with the configurations.
-        3. For each publish_information create a service.
-        4. For each publish_information, extract target port and use it on the pod.
+        - Check client
+        - Extract unique_target_ports and service_information from self.publish_information.
+        - Extract environment, Use target_ports, container_name, image_name, namespace name
+            to create the pod.
+        - Use service_information_list to create services for the pod.
 
-        returns: dict: {'container_id': <container_id>, 'container_network': <container_network>}
+        returns: list[dict]:
+            [
+                {
+                    'container_id': <container_id>,
+                    'container_network': <container_network>,
+                    'container_port': <container_port> | None,
+                },
+                {
+                    'container_id': <container_id>,
+                    'container_network': <container_network>,
+                    'container_port': <container_port> | None,
+                },
+                ...
+            ]
 
         Author: Namah Shrestha
         """
         try:
             self.check_client()
-            # extract publish information
-            publish_information_list: list = []
-            unique_target_ports: set = set()
-            for target_port_name, host_port in self.publish_information.items():
-                target_port, protocol = target_port_name.split("/")
-                unique_target_ports.add(int(target_port))
-                publish_information_list.append(
-                    {
-                        "service_port": host_port,
-                        "target_port": int(target_port),
-                        "protocol": protocol,
-                    }
-                )
+            unique_target_ports, service_information_list = self.extract_publish_information(
+                publish_information=self.publish_information
+            )
 
             # create environment variable list
-            env_list: list = []
-            for name, value in self.environment.items():
-                env_list.append(kcli.V1EnvVar(name=name, value=value))
-
+            env_list: list = [
+                kcli.V1EnvVar(name=name, value=value)
+                for name, value in self.environment.items()
+            ]
             # create target port list
-            target_port_list: list = []
-            for target_port in unique_target_ports:
-                target_port_list.apepnd(kcli.V1ContainerPort(container_port=target_port))
+            target_port_list: list = [
+                kcli.V1ContainerPort(container_port=target_port)
+                for target_port in unique_target_ports
+            ]
 
-            pod_manifest = kcli.V1Pod(
+            # create pod manifest
+            pod_manifest: kcli.V1Pod = kcli.V1Pod(
                 metadata=kcli.V1ObjectMeta(name=self.container_name),
                 spec=kcli.V1PodSpec(
                     containers=[
@@ -513,38 +631,35 @@ class KubernetesContainerManager(ContainerManager):
             # create the namespace
             self.create_namespace(namespace_name=self.container_network)
             # Create the Pod in the namespace
-            self.client.create_namespaced_pod(self.container_network, pod_manifest)
+            pod: kcli.V1Pod = self.client.create_namespaced_pod(self.container_network, pod_manifest)
             # Create the services for the Pod
-            self.create_services_for_app(
+            services_list: list[dict] = self.create_services_for_app(
                 service_name=f"{self.container_name}-service",
                 app_name=self.container_name,
                 namespace=self.container_network,
-                publish_information_list=publish_information_list,
+                service_information_list=service_information_list,
             )
-            """
-            If publish information is not provided. Then there are no services.
-            So return the pod ip. Otherwise return the service ip
-            """
-            if not self.publish_information:
-                # get pod ip and return that
-                namespaced_pod = self.client.read_namespaced_pod(
-                    name=self.container_name,
-                    namespace=self.container_network,
-                )
-                container_id: str = namespaced_pod.metadata.uid
+            # if services are not available then return pod id otherwise return service id
+            if services_list:
+                return [
+                    {
+                        'container_id': service['service_id'],
+                        'container_network': service['service_namespace'],
+                        'container_port': service['service_port'],
+                    }
+                    for service in services_list
+                ]
             else:
-                # get service ip and return that
-                namespaced_service = self.client.read_namespaced_service(
-                    name=f"{self.container_name}-service-0",
-                    namespace=self.container_network,
-                )
-                # we are using service-0 because there will be atleast 1 service, if it is there.
-                # and that single service will have an index of 0.
-                container_id: str = namespaced_service.metadata.uid
-            return {
-                "container_id": container_id,
-                "container_network": self.container_network,
-            }
+                # here we will not give back port.
+                # Because, no publish information has been provided.
+                # This means, the user did not intend to have exposed ports.
+                return [
+                    {
+                        "container_id": pod.metadata.uid,
+                        "container_network": pod.metadata.namespace,
+                        "container_port": None,
+                    }
+                ]
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
@@ -552,55 +667,55 @@ class KubernetesContainerManager(ContainerManager):
         except Exception as e:
             raise Exception(e)
 
-    @classmethod
-    def start_container(cls, container_id: str, container_network: str) -> dict:
-        """
-        Start is not supported for kubernetes.
-        However, what start gets is container_id and what it needs to return is
-        container_ip.
-        The container_id it received can be either a pod or a service.
-        We need to figure that out and then return the ip accordingly.
-        1. Figure out whether the container_id is a pod id or a service id.
-            - list all services within container_network.
-            - list all pods within container_network.
-            - Check each of their metadata.uid and see if it matches.
-        2. Fetch the resource.
-        3. Return the ip address accordingly.
+    # @classmethod
+    # def start_container(cls, container_id: str, container_network: str) -> dict:
+    #     """
+    #     Start is not supported for kubernetes.
+    #     However, what start gets is container_id and what it needs to return is
+    #     container_ip.
+    #     The container_id it received can be either a pod or a service.
+    #     We need to figure that out and then return the ip accordingly.
+    #     1. Figure out whether the container_id is a pod id or a service id.
+    #         - list all services within container_network.
+    #         - list all pods within container_network.
+    #         - Check each of their metadata.uid and see if it matches.
+    #     2. Fetch the resource.
+    #     3. Return the ip address accordingly.
 
-        Author: Namah Shrestha
-        """
+    #     Author: Namah Shrestha
+    #     """
 
-        return {
-            "container_id": container_id,
-            "container_ip": "",
-        }
+    #     return {
+    #         "container_id": container_id,
+    #         "container_ip": "",
+    #     }
 
-    @classmethod
-    def stop_container(cls, container_id: str) -> dict:
-        """
-        Stop is not supported for kubernetes.
+    # @classmethod
+    # def stop_container(cls, container_id: str) -> dict:
+    #     """
+    #     Stop is not supported for kubernetes.
 
-        Author: Namah Shrestha
-        """
-        return {
-            "container_id": container_id,
-            "status": "Stop not supported for kubernetes, Use delete."
-        }
+    #     Author: Namah Shrestha
+    #     """
+    #     return {
+    #         "container_id": container_id,
+    #         "status": "Stop not supported for kubernetes, Use delete."
+    #     }
 
-    @classmethod
-    def delete_container(cls, container_id: str) -> dict:
-        """
-        The delete container will recieve a container_id.
-        This container_id can be a service id or a pod id.
-        Also, delete container does not get a namespace, so we need to know
-        which namespace the pod or the service belongs to.
+    # @classmethod
+    # def delete_container(cls, container_id: str) -> dict:
+    #     """
+    #     The delete container will recieve a container_id.
+    #     This container_id can be a service id or a pod id.
+    #     Also, delete container does not get a namespace, so we need to know
+    #     which namespace the pod or the service belongs to.
 
-        Author: Namah Shrestha
-        """
-        pass
+    #     Author: Namah Shrestha
+    #     """
+    #     pass
 
 
 ENV_CONTAINER_MGR_MAPPING: dict = {
     "docker": DockerContainerManager,
-    "kubernetes": KubernetesContainerManager
+    "kubernetes": KubernetesContainerManager,
 }

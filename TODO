@@ -1,5 +1,3 @@
-- When running on docker, docker env should be set and same for kubernetes.
-- Make the code deployable on kubernetes.
 - Add kubernetes methods to create, start, stop, delete.
 - Look into Load balancing.
 - Look into SSL.
@@ -10,16 +8,21 @@
 - Add tox.
 - Add github actions.
 
-
-Tomorrow:
----------
-1. Run in kubernetes.
-2. Check logs for runtime environment. /.dockerenv should not be present.
-
-
 Refactor:
 ----------
-1. Get runtime env to work for both docker and k8s
-2. Do not take cnenv from request. Rather, select the env on your own.
-3. Get the optional keys from the request. Make them have default values.
-    - For example, publish and environment details may not be present.
+1. In kubernetes,
+    - a pod might have multiple services.
+    - a pod might not have any services.
+    - We might have multiple ip addresses and container ids.
+2. In docker,
+    - no matter how many publishes we make, theres only one host.
+    - There might be multiple ports.
+
+3. So now, what we do is, we return back publish information as well.
+4. Lets implement the kubernetes logic first and then move that over to docker.
+
+
+***** Change the publish information type from dict to tuple or have a list for each service port. ***
+6. Return many containerid, containernetwork, containerport for each publish info in docker as well.
+7. Add wait for ip address logic in kubernetes.
+8. Add container network to stop and delete containers as well.
