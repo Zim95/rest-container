@@ -193,7 +193,6 @@ class DockerContainerManager(ContainerManager):
         Author: Namah Shrestha
         """
         try:
-            breakpoint()
             self.check_client()
             self.create_network(self.container_network)
             container_options: dict = {
