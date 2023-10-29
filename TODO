@@ -1,4 +1,5 @@
-- Look into Load balancing.
+- Loadbalancing is done through k8s services.
+- Look into Ingress.
 - Look into SSL.
 - Fix Makefile issues.
 - Add swagger UI.
