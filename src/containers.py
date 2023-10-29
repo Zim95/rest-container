@@ -449,6 +449,81 @@ class KubernetesContainerManager(ContainerManager):
             raise Exception(e)
 
     @classmethod
+    def create_pod(
+        cls,
+        container_name: str, 
+        image_name: str,
+        target_ports: set,
+        environment: dict,
+        namespace_name: str
+    ) -> dict:
+        """
+        Create a pod if it doesn't exist.
+        :params:
+            :container_name: str: Name of the container.
+            :image_name: str: Image name.
+            :target_ports: set: Target ports that the container is listening to.
+            :environment: dict: Environment dictionary.
+            :namespace_name: str: Namespace to create the pod in.
+        :returns: dict:
+            {
+                "pod_id": pod.metadata.uid,
+                "pod_namespace": pod.metadata.namespace,
+            }
+        """
+        try:
+            # list all existing pods
+            pod_list = cls.client.list_namespaced_pod(namespace=namespace_name)
+            pod_names: list[str] = []
+            pod_name_id_map: dict = {}
+            for pod_item in pod_list.items:
+                pod_names.append(pod_item.metadata.name)
+                pod_name_id_map[pod_item.metadata.name] = {
+                    "pod_id": pod_item.metadata.uid,
+                    "pod_namespace": pod_item.metadata.namespace,
+                }
+
+            if container_name in pod_names:
+                return pod_name_id_map[container_name]
+
+            # create environment variable list
+            env_list: list = [
+                kcli.V1EnvVar(name=name, value=value)
+                for name, value in environment.items()
+            ]
+            # create target port list
+            target_port_list: list = [
+                kcli.V1ContainerPort(container_port=target_port)
+                for target_port in target_ports
+            ]
+
+            # create pod manifest
+            pod_manifest: kcli.V1Pod = kcli.V1Pod(
+                metadata=kcli.V1ObjectMeta(name=container_name),
+                spec=kcli.V1PodSpec(
+                    containers=[
+                        kcli.V1Container(
+                            name=container_name,
+                            image=image_name,
+                            ports=target_port_list,
+                            env=env_list,
+                        )
+                    ]
+                )
+            )
+            pod: kcli.V1Pod = cls.client.create_namespaced_pod(namespace_name, pod_manifest)
+            return {
+                "pod_id": pod.metadata.uid,
+                "pod_namespace": pod.metadata.namespace,
+            }
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
+    @classmethod
     def delete_namespace(cls, namespace_name: str) -> None:
         """
         TODO: Create delete namespace method.
@@ -486,6 +561,23 @@ class KubernetesContainerManager(ContainerManager):
         """
         try:
             cls.check_client()
+            # check for existing services
+            service_list = cls.client.list_namespaced_service(namespace=namespace)
+            service_names: list = []
+            service_name_info_map: dict = {}
+            for service in service_list.items:
+                service_names.append(service.metadata.name)
+                service_name_info_map[service.metadata.name] = {
+                    "service_id": service.metadata.uid,
+                    "service_ip": service._spec.cluster_ip,
+                    "service_name": service.metadata.name,
+                    "service_namespace": namespace,
+                    "service_port": service_port,
+                }
+            # if service already exists return the details
+            if service_name in service_names:
+                return service_name_info_map[service_name]
+            # create the service manifest
             service_manifest: kcli.V1Service = kcli.V1Service(
                 metadata=kcli.V1ObjectMeta(name=service_name),
                 spec=kcli.V1ServiceSpec(
@@ -500,7 +592,9 @@ class KubernetesContainerManager(ContainerManager):
                     type="LoadBalancer"
                 )
             )
+            # create the service
             service: kcli.V1Service = cls.client.create_namespaced_service(namespace, service_manifest)
+            # return the details
             return {
                 "service_id": service.metadata.uid,
                 "service_ip": service._spec.cluster_ip,
@@ -632,36 +726,16 @@ class KubernetesContainerManager(ContainerManager):
                 publish_information=self.publish_information
             )
 
-            # create environment variable list
-            env_list: list = [
-                kcli.V1EnvVar(name=name, value=value)
-                for name, value in self.environment.items()
-            ]
-            # create target port list
-            target_port_list: list = [
-                kcli.V1ContainerPort(container_port=target_port)
-                for target_port in unique_target_ports
-            ]
-
-            # create pod manifest
-            pod_manifest: kcli.V1Pod = kcli.V1Pod(
-                metadata=kcli.V1ObjectMeta(name=self.container_name),
-                spec=kcli.V1PodSpec(
-                    containers=[
-                        kcli.V1Container(
-                            name=self.container_name,
-                            image=self.image_name,
-                            ports=target_port_list,
-                            env=env_list,
-                        )
-                    ]
-                )
-            )
-
             # create the namespace
             self.create_namespace(namespace_name=self.container_network)
             # Create the Pod in the namespace
-            pod: kcli.V1Pod = self.client.create_namespaced_pod(self.container_network, pod_manifest)
+            pod_dict: dict = self.create_pod(
+                container_name=self.container_name,
+                image_name=self.image_name,
+                target_ports=unique_target_ports,
+                environment=self.environment,
+                namespace_name=self.container_network,
+            )
             # Create the services for the Pod
             services_list: list[dict] = self.create_services_for_app(
                 service_name=f"{self.container_name}-service",
@@ -685,8 +759,8 @@ class KubernetesContainerManager(ContainerManager):
                 # This means, the user did not intend to have exposed ports.
                 return [
                     {
-                        "container_id": pod.metadata.uid,
-                        "container_network": pod.metadata.namespace,
+                        "container_id": pod_dict["pod_id"],
+                        "container_network": pod_dict["pod_namespace"],
                         "container_port": None,
                     }
                 ]
@@ -793,32 +867,6 @@ class KubernetesContainerManager(ContainerManager):
             raise Exception(e)
 
     @classmethod
-    def get_pods_for_service(cls, service_name: str, namespace: str) -> list[str]:
-        """
-        Get all the pods for a service.
-        :params:
-            :service_name: str: Service name.
-            :namespace: str: Namespace of the service.
-        :returns:
-            list[str]: names of pods associated with the service.
-
-        Author: Namah Shrestha
-        """
-        try:
-            endpoints = cls.client.list_namespaced_endpoints(namespace=namespace)
-            for endpoint in endpoints.items:
-                if endpoint.metadata.name == service_name:
-                    pods: list = []
-                    for subset in endpoint.subsets:
-                        for address in subset.addresses:
-                            pods.append(address.target_ref.name)
-                    return pods
-            return []
-        except Exception as e:
-            print(f"Error: {str(e)}")
-            return []
-
-    @classmethod
     def delete_container(cls, container_ids: list[str], container_network: str) -> list[dict]:
         """
         Delete the container based on the parameters.
@@ -856,7 +904,10 @@ class KubernetesContainerManager(ContainerManager):
             service_ids_name_map: dict = {}
             for service in service_list.items:
                 service_ids.append(service.metadata.uid)
-                service_ids_name_map[service.metadata.uid] = service.metadata.name
+                service_ids_name_map[service.metadata.uid] = {
+                    'service_name': service.metadata.name,
+                    'associated_pod': service.spec.selector['app']
+                }
             
             delete_container_results: list = []
             pods_to_delete: set = set()
@@ -867,35 +918,32 @@ class KubernetesContainerManager(ContainerManager):
                     # So just delete the pod and thats it.
                     # Put it on the list of pods to delete.
                     pod_name: str = pod_ids_name_map[container_id]
-                    pods_to_delete.add((pod_name, container_id))
+                    pods_to_delete.add(pod_name)
                 elif container_id in service_ids:
                     # Get associated pods and put them on the list of pods to delete.
                     # Put the service name on services to be deleted.
-                    service_name: str = service_ids_name_map[container_id]
-                    services_to_delete.add((service_name, container_id))
-                    pod_names: list = cls.get_pods_for_service(
-                        service_name=service_name,
-                        namespace=container_network,
-                    )
-                    for pod_name in pod_names:
-                        pods_to_delete.add((pod_name, container_id))
+                    service_name: str = service_ids_name_map[container_id]['service_name']
+                    associated_pod: str = service_ids_name_map[container_id]['associated_pod']
+                    services_to_delete.add(service_name)
+                    pods_to_delete.add(associated_pod)
 
+            breakpoint()
             # delete all the pods
             for pod_to_delete in pods_to_delete:
-                cls.client.delete_namespaced_pod(name=pod_to_delete[0], namespace=container_network)
+                cls.client.delete_namespaced_pod(name=pod_to_delete, namespace=container_network)
                 delete_container_results.append(
                     {
-                        "container_id": pod_to_delete[1],
+                        "container_id": pod_to_delete,
                         "container_network": container_network,
                         "status": "deleted pod"
                     }
                 )
             # delete all the services
             for service_to_delete in services_to_delete:
-                cls.client.delete_namespaced_service(name=service_to_delete[0], namespace=container_network)
+                cls.client.delete_namespaced_service(name=service_to_delete, namespace=container_network)
                 delete_container_results.append(
                     {
-                        "container_id": pod_to_delete[1],
+                        "container_id": service_to_delete,
                         "container_network": container_network,
                         "status": "deleted service"
                     }
