@@ -1,4 +1,3 @@
-- Add kubernetes methods to create, start, stop, delete.
 - Look into Load balancing.
 - Look into SSL.
 - Fix Makefile issues.
@@ -7,12 +6,3 @@
 - Add integration tests.
 - Add tox.
 - Add github actions.
-
-Refactor:
-----------
-1. While creating anything in kubernetes, check if it is already there or not.
-
-NOTE: 
-    - Only one port can be mapped to one container port.
-    - Eg: 2222 and 2223 cannot be mapped to 22.
-    - So 2222:22 and 2223:23 should be done. 2222:22 and 2223:22 is not supported.
