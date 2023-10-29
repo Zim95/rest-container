@@ -10,22 +10,7 @@
 
 Refactor:
 ----------
-1. In kubernetes,
-    - a pod might have multiple services.
-    - a pod might not have any services.
-    - We might have multiple ip addresses and container ids.
-2. In docker,
-    - no matter how many publishes we make, theres only one host.
-    - There might be multiple ports.
-
-3. So now, what we do is, we return back publish information as well.
-4. Lets implement the kubernetes logic first and then move that over to docker.
-
-
-
-6. Return many containerid, containernetwork, containerport for each publish info in docker as well.
-7. Add wait for ip address logic in kubernetes.
-8. Add container network to stop and delete containers as well.
+1. While creating anything in kubernetes, check if it is already there or not.
 
 NOTE: 
     - Only one port can be mapped to one container port.

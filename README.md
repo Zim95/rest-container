@@ -88,7 +88,7 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
   This service itself also runs on `8003`.
 - Next we need to port forward `8003`.
     ```
-    kubectl port-forward svc/rest-container-api-service <host-port>:8003 -n rc-namespace
+    kubectl port-forward svc/rest-container-api-debug-service <host-port>:8003 -n rc-namespace
     ```
 - Now make the API Requests to port `8003`.
 - You can also use the debugger, `import pdb; pdb.set_trace()` or `breakpoint()` to
@@ -102,33 +102,171 @@ NOTE: All the commands in Makefile do not work as intended. This is being fixed.
         Its as simple as doing `kubectl apply -f <file>.yaml` and `kubectl delete -f <file>.yaml`
 
 
-# API Requests
-- The API Requests will create/stop/start/delete containers on which ever environment they are run on.
-- For example,
-    - If the container is run on docker, these APIs will create/start/stop/delete docker containers.
-- Here are the requests.
-    1. Create container request:
-        ```
-        curl -XPOST "http://localhost:8002/create" -d '{"image_name": "enter-an-image-name", "container_name": "enter-a-name-here", "container_network": "<enter a network name>", "publish_information": "{\"<container-port>\/tcp\": <host-port>}", "environment": "{\"keya\": \"valuea\"}"
-        }' -H "Content-Type: application/json"
-        ```
-        NOTE: `container_name`, `publish_information` and `environment` are optional request parameters.
-        The response will include a `container_id` and `container_network` which can be used with the next requests.
+# API Requests using POSTMAN
+- Import the REST-Container-APIRequests.postman_collection.json into your POSTMAN.
+- Use the requests as follows:
+    - Create the container. The response should have multiple container ids.
+    - Paste those container ids in the container_ids field for start, stop and delete
+      to make those requests..
+    - NOTE: For kubernetes you can notice that stop is not available. That is because kubernetes
+            does not support stop. 
 
-    2. Start container request:
-        ```
-        curl -XPOST "http://localhost:8002/start" -d '{"container_id": "<container-id>","container_network": "<container_network>"}' -H "Content-Type: application/json"
-        ```
+# API Requests using CURL
+- Create Container Request:
+    ```
+    curl --location 'http://localhost:8003/create' \
+    --header 'Content-Type: application/json' \
+    --data '{
+        "image_name": "<repo_name>/<image_name>:<image_tag>",
+        "container_name": "<unique-container-name>",
+        "container_network": "<unique-container-network>",
+        "publish_information": {
+            "<container-port>/<protocol>": <hostport/serviceport>,
+            "<container-port>/<protocol>": <hostport/serviceport>,
+            ....
+        },
+        "environment": {
+            "<env1>": "<value1>",
+            "<env1>": "<value1>",
+            ....
+        }
+    }'
+    ```
 
-    3. Stop container request:
-        ```
-        curl -XPOST "http://localhost:8002/stop" -d '{"container_id": "<container-id>"}' -H "Content-Type: application/json"
-        ```
+    Take this example for kubernetes:
+    ```
+    curl --location 'http://localhost:8003/create' \
+    --header 'Content-Type: application/json' \
+    --data '{
+        "image_name": "zim95/ssh_ubuntu:latest",
+        "container_name": "test-ssh",
+        "container_network": "test-ssh-network",
+        "publish_information": {
+            "22/tcp": 2222,
+            "23/tcp": 2223
+        },
+        "environment": {
+            "SSH_PASSWORD": "0907namah"
+        }
+    }'
+    ```
 
-    4. Delete container request:
-        ```
-        curl -XPOST "http://localhost:8002/delete" -d '{"container_id": "<container-id>"}' -H "Content-Type: application/json"
-        ```
+    The response of the example would look as follows:
+    ```
+    {
+        "response": [
+            {
+                "container_id": "26cd4497-5fcd-4237-a525-76cdc4d83da8",
+                "container_network": "test-ssh-network",
+                "container_port": 2222
+            },
+            {
+                "container_id": "b210058b-b684-48c1-a0a6-6a98bf632914",
+                "container_network": "test-ssh-network",
+                "container_port": 2223
+            }
+        ]
+    }
+    ```
+    Now, create a list from the unqiue container_ids and use that for the other requests:
+    ```
+    {
+        "container_ids": ["26cd4497-5fcd-4237-a525-76cdc4d83da8", "b210058b-b684-48c1-a0a6-6a98bf632914"],
+        "container_network": "test-ssh-network"
+    }
+    ```
+- Start Container Request:
+    Use the above data to create the curl request.
+    ```
+    curl --location 'http://localhost:8002/start' \
+    --header 'Content-Type: application/json' \
+    --data '{
+        "container_ids": ["26cd4497-5fcd-4237-a525-76cdc4d83da8", "b210058b-b684-48c1-a0a6-6a98bf632914"],
+        "container_network": "test-ssh-network"
+    }'
+    ```
+
+    The response of the example would look as:
+    ```
+    {
+        "response": [
+            {
+                "container_id": "26cd4497-5fcd-4237-a525-76cdc4d83da8",
+                "container_ip": "10.96.77.178"
+            },
+            {
+                "container_id": "b210058b-b684-48c1-a0a6-6a98bf632914",
+                "container_ip": "10.96.68.181"
+            }
+        ]
+    }
+    ```
+- Stop Container Request:
+    Use the above data to create the curl request.
+    ```
+    curl --location 'http://localhost:8002/start' \
+    --header 'Content-Type: application/json' \
+    --data '{
+        "container_ids": ["26cd4497-5fcd-4237-a525-76cdc4d83da8", "b210058b-b684-48c1-a0a6-6a98bf632914"],
+        "container_network": "test-ssh-network"
+    }'
+    ```
+
+    The response of the example would look as:
+    ```
+    {
+    "response": [
+            {
+                "container_id": "test-ssh",
+                "container_network": "test-ssh-network",
+                "status": "deleted pod"
+            },
+            {
+                "container_id": "test-ssh-service-0",
+                "container_network": "test-ssh-network",
+                "status": "deleted service"
+            },
+            {
+                "container_id": "test-ssh-service-1",
+                "container_network": "test-ssh-network",
+                "status": "deleted service"
+            }
+        ]
+    }
+    ```
+- Delete Container Request:
+    Use the above data to create the curl request.
+    ```
+    curl --location 'http://localhost:8002/start' \
+    --header 'Content-Type: application/json' \
+    --data '{
+        "container_ids": ["26cd4497-5fcd-4237-a525-76cdc4d83da8", "b210058b-b684-48c1-a0a6-6a98bf632914"],
+        "container_network": "test-ssh-network"
+    }'
+    ```
+
+    The response of the example would look as:
+    ```
+    {
+    "response": [
+            {
+                "container_id": "test-ssh",
+                "container_network": "test-ssh-network",
+                "status": "deleted pod"
+            },
+            {
+                "container_id": "test-ssh-service-0",
+                "container_network": "test-ssh-network",
+                "status": "deleted service"
+            },
+            {
+                "container_id": "test-ssh-service-1",
+                "container_network": "test-ssh-network",
+                "status": "deleted service"
+            }
+        ]
+    }
+    ```
 
 # Pushing the image
 - Pushing the image requires the image to be built.

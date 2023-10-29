@@ -193,6 +193,7 @@ class DockerContainerManager(ContainerManager):
         Author: Namah Shrestha
         """
         try:
+            breakpoint()
             self.check_client()
             self.create_network(self.container_network)
             container_options: dict = {
@@ -219,7 +220,7 @@ class DockerContainerManager(ContainerManager):
                         "container_network": self.container_network,
                         "container_port": host_port,
                     }
-                    for _, host_port in self.publish_information
+                    for _, host_port in self.publish_information.items()
                 ]
             else:
                 # if there is no publish information, it means the user does not want any port to be mapped.
@@ -350,7 +351,7 @@ class DockerContainerManager(ContainerManager):
             delete_container_results: list = []
             for container_id in container_ids:
                 container = cls.client.containers.get(container_id=container_id)
-                container.stop()
+                container.remove()
                 delete_container_results.append(
                     {
                         "container_id": container.id,
@@ -927,7 +928,6 @@ class KubernetesContainerManager(ContainerManager):
                     services_to_delete.add(service_name)
                     pods_to_delete.add(associated_pod)
 
-            breakpoint()
             # delete all the pods
             for pod_to_delete in pods_to_delete:
                 cls.client.delete_namespaced_pod(name=pod_to_delete, namespace=container_network)

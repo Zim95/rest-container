@@ -1,0 +1,224 @@
+{
+	"info": {
+		"_postman_id": "e78a8e46-8fd8-4c19-93be-e882d12140ab",
+		"name": "REST-Container-APIRequests",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20034739",
+		"_collection_link": "https://www.postman.com/mission-meteorologist-75024144/workspace/rest-container-apirequests/collection/20034739-e78a8e46-8fd8-4c19-93be-e882d12140ab?action=share&source=collection_link&creator=20034739"
+	},
+	"item": [
+		{
+			"name": "Kubernetes",
+			"item": [
+				{
+					"name": "CreateContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"image_name\": \"zim95/ssh_ubuntu:latest\",\r\n    \"container_name\": \"test-ssh\",\r\n    \"container_network\": \"test-ssh-network\",\r\n    \"publish_information\": {\r\n        \"22/tcp\": 2222,\r\n        \"23/tcp\": 2223\r\n    },\r\n    \"environment\": {\r\n        \"SSH_PASSWORD\": \"0907namah\"\r\n    }\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/create",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"create"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "StartContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"container_ids\": [\"26cd4497-5fcd-4237-a525-76cdc4d83da8\", \"b210058b-b684-48c1-a0a6-6a98bf632914\"],\r\n    \"container_network\": \"test-ssh-network\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/start",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "DeleteContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"container_ids\": [\"26cd4497-5fcd-4237-a525-76cdc4d83da8\", \"b210058b-b684-48c1-a0a6-6a98bf632914\"],\r\n    \"container_network\": \"test-ssh-network\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/delete",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"delete"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Docker",
+			"item": [
+				{
+					"name": "CreateContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"image_name\": \"zim95/ssh_ubuntu:latest\",\r\n    \"container_name\": \"test-ssh\",\r\n    \"container_network\": \"test-ssh-network\",\r\n    \"publish_information\": {\r\n        \"22/tcp\": 2222,\r\n        \"23/tcp\": 2223\r\n    },\r\n    \"environment\": {\r\n        \"SSH_PASSWORD\": \"0907namah\"\r\n    }\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8003/create",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8003",
+							"path": [
+								"create"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "StartContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"container_ids\": [\"35c7106fa58d7c2958b4ed4ad9e8b25693e9d9da010501d98528e026d504df0b\"],\r\n    \"container_network\": \"test-ssh-network\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/start",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "StopContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"container_ids\": [\"35c7106fa58d7c2958b4ed4ad9e8b25693e9d9da010501d98528e026d504df0b\"],\r\n    \"container_network\": \"test-ssh-network\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/stop",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"stop"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "DeleteContainer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"container_ids\": [\"35c7106fa58d7c2958b4ed4ad9e8b25693e9d9da010501d98528e026d504df0b\"],\r\n    \"container_network\": \"test-ssh-network\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8002/delete",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8002",
+							"path": [
+								"delete"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
