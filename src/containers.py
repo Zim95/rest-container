@@ -179,11 +179,15 @@ class DockerContainerManager(ContainerManager):
             [
                 {
                     'container_id': <container_id>,
+                    'container_name': <container_name>,
+                    'container_image': <container_image>,
                     'container_network': <container_network>,
                     'container_port': <container_port> | None,
                 },
                 {
                     'container_id': <container_id>,
+                    'container_name': <container_name>,
+                    'container_image': <container_image>,
                     'container_network': <container_network>,
                     'container_port': <container_port> | None,
                 },
@@ -216,6 +220,8 @@ class DockerContainerManager(ContainerManager):
                 return [
                     {
                         "container_id": container.id,
+                        "container_name": self.container_name,
+                        "container_image": self.image_name,
                         "container_network": self.container_network,
                         "container_port": host_port,
                     }
@@ -707,11 +713,15 @@ class KubernetesContainerManager(ContainerManager):
             [
                 {
                     'container_id': <container_id>,
+                    'container_name': <container_name>,
+                    'container_image': <container_image>,
                     'container_network': <container_network>,
                     'container_port': <container_port> | None,
                 },
                 {
                     'container_id': <container_id>,
+                    'container_name': <container_name>,
+                    'container_image': <container_image>,
                     'container_network': <container_network>,
                     'container_port': <container_port> | None,
                 },
@@ -748,6 +758,8 @@ class KubernetesContainerManager(ContainerManager):
                 return [
                     {
                         'container_id': service['service_id'],
+                        'container_name': self.container_name,
+                        'container_image': self.image_name,
                         'container_network': service['service_namespace'],
                         'container_port': service['service_port'],
                     }
@@ -760,6 +772,8 @@ class KubernetesContainerManager(ContainerManager):
                 return [
                     {
                         "container_id": pod_dict["pod_id"],
+                        'container_name': self.container_name,
+                        'container_image': self.image_name,
                         "container_network": pod_dict["pod_namespace"],
                         "container_port": None,
                     }
