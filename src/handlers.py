@@ -10,6 +10,7 @@ import src.utils as utils
 
 # third party
 import docker
+import kubernetes.client.rest as k8s_rest
 
 
 class Handler:
@@ -172,21 +173,19 @@ class CreateContainerHandler(ContainerHandler):
             response: dict = container_manager_object.create_container()
             return response
         except exceptions.UnsupportedRuntimeEnvironment as e:
-            return {
-                "unsupported_runtime_env_error": str(e),
-            }
+            raise exceptions.UnsupportedRuntimeEnvironment(e)
         except exceptions.ContainerManagerNotFound as e:
-            return {
-                "container_mgr_not_found_error": str(e),
-            }
+            raise exceptions.ContainerManagerNotFound(e)
         except json.JSONDecodeError as je:
-            return {
-                "json_decode_error": str(je),
-            }
+            raise json.JSONDecodeError(je)
         except docker.errors.DockerException as de:
-            return {
-                "docker_exception": str(de),
-            }
+            raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
 
 class ReadyContainerHandler(ContainerHandler):
@@ -226,17 +225,18 @@ class ReadyContainerHandler(ContainerHandler):
             container_payload: dict = self.json_load(self.request_params, "payload")
             return self.calling_method(**container_payload)
         except exceptions.UnsupportedRuntimeEnvironment as e:
-            return {
-                "unsupported_runtime_env_error": str(e),
-            }
+            raise exceptions.UnsupportedRuntimeEnvironment(e)
         except exceptions.ContainerManagerNotFound as e:
-            return {
-                "container_mgr_not_found_error": str(e),
-            }
+            raise exceptions.ContainerManagerNotFound(e)
         except docker.errors.DockerException as de:
-            return {
-                "docker_exception": str(de),
-            }
+            raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
 
 
 class StartContainerHandler(ReadyContainerHandler):
@@ -257,6 +257,12 @@ class StartContainerHandler(ReadyContainerHandler):
             raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
 
 class StopContainerHandler(ReadyContainerHandler):
@@ -277,6 +283,12 @@ class StopContainerHandler(ReadyContainerHandler):
             raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
 
 
 class DeleteContainerHandler(ReadyContainerHandler):
@@ -297,3 +309,9 @@ class DeleteContainerHandler(ReadyContainerHandler):
             raise KeyError(ke)
         except docker.errors.DockerException as de:
             raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
