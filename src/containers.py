@@ -860,19 +860,23 @@ class KubernetesContainerManager(ContainerManager):
             :container_network: str: Network of the container
         :returns: list[dict]:
             [
-                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
-                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "deleted"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
+                {'container_id': <container_id>, 'container_network': <container_network> ,"status": "stopped"},
                 ...
             ]
-        NOTE: Stop is not supported in kubernetes. It calls `delete_container`.
+        NOTE: Stop is not supported in kubernetes. This is a fake method to adhere to standards.
     
         Author: Namah Shrestha
         """
         try:
-            return cls.delete_container(
-                container_ids=container_ids,
-                container_network=container_network,
-            )
+            return [
+                {
+                    "container_id": container_id,
+                    "container_network": container_network,
+                    "status": "stopped"
+                }
+                for container_id in container_ids
+            ]
         except k8s_rest.ApiException as ka:
             raise k8s_rest.ApiException(ka)
         except exceptions.ContainerClientNotResolved as ccnr:
