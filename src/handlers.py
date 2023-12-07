@@ -212,7 +212,7 @@ class ReadyContainerHandler(ContainerHandler):
         """
         pass
 
-    def handle(self) -> dict | None:
+    def handle(self) -> list | None:
         """
         Take the environment: Either docker or kubernetes.
         Take the container id
@@ -223,7 +223,15 @@ class ReadyContainerHandler(ContainerHandler):
         try:
             super().handle()
             container_payload: dict = self.json_load(self.request_params, "payload")
-            return self.calling_method(**container_payload)
+            container_name: str = container_payload.get("container_name", "")
+            calling_response: list = self.calling_method(**container_payload)
+            if container_name:
+                modified_response = []
+                for res in calling_response:
+                    res["container_name"] = container_name
+                    modified_response.append(res)
+                return modified_response
+            return calling_response
         except exceptions.UnsupportedRuntimeEnvironment as e:
             raise exceptions.UnsupportedRuntimeEnvironment(e)
         except exceptions.ContainerManagerNotFound as e:
@@ -244,7 +252,7 @@ class StartContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, **container_payload: dict) -> dict:
+    def calling_method(self, **container_payload: dict) -> list:
         try:
             container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
@@ -270,7 +278,7 @@ class StopContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, **container_payload: dict) -> dict:
+    def calling_method(self, **container_payload: dict) -> list:
         try:
             container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
@@ -296,7 +304,7 @@ class DeleteContainerHandler(ReadyContainerHandler):
     def __init__(self, request_params: dict) -> None:
         super().__init__(request_params)
 
-    def calling_method(self, **container_payload: dict) -> dict:
+    def calling_method(self, **container_payload: dict) -> list:
         try:
             container_ids: list[str] = container_payload["container_ids"]
             container_network: str = container_payload["container_network"]
