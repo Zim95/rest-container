@@ -333,7 +333,6 @@ class BeaconHandler(Handler):
 
     def handle(self) -> dict | None:
         try:
-            breakpoint()
             beacon_payload: list[dict] = json.loads(self.request_params["payload"])
             for payload in beacon_payload:
                 response = requests.request(
