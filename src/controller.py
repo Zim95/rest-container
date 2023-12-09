@@ -12,6 +12,7 @@ HANDLERS_MAP: dict = {
     "stop": handlers.StopContainerHandler,
     "delete": handlers.DeleteContainerHandler,
     "ping": handlers.PingHandler,
+    "beacon": handlers.BeaconHandler,
 }
 
 

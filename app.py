@@ -26,6 +26,7 @@ routes: list = [
     ("/start", "start", ["POST"]),
     ("/stop", "stop", ["POST"]),
     ("/delete", "delete", ["POST"]),
+    ("/beacon", "beacon", ["POST"]),
 ]
 for route in routes:
     app.add_url_rule(route[0], route[1], controller.handle, methods=route[2])

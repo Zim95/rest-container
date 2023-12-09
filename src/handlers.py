@@ -1,6 +1,7 @@
 # builtins
 import json
 import abc
+import requests
 
 # modules
 import src.exceptions as exceptions
@@ -160,7 +161,7 @@ class CreateContainerHandler(ContainerHandler):
         Author: Namah Shrestha
         """
         try:
-            super().handle()  
+            super().handle()
             container_payload: dict = self.json_load(self.request_params, "payload")
             container_manager_object: containers.ContainerManager = \
                 self.container_manager(
@@ -313,6 +314,36 @@ class DeleteContainerHandler(ReadyContainerHandler):
                 container_network=container_network
             )
             return response
+        except KeyError as ke:
+            raise KeyError(ke)
+        except docker.errors.DockerException as de:
+            raise docker.errors.DockerException(de)
+        except k8s_rest.ApiException as ka:
+            raise k8s_rest.ApiException(ka)
+        except exceptions.ContainerClientNotResolved as ccnr:
+            raise exceptions.ContainerClientNotResolved(ccnr)
+        except Exception as e:
+            raise Exception(e)
+
+
+class BeaconHandler(Handler):
+
+    def __init__(self, request_params: dict) -> None:
+        super().__init__(request_params)
+
+    def handle(self) -> dict | None:
+        try:
+            breakpoint()
+            beacon_payload: list[dict] = json.loads(self.request_params["payload"])
+            for payload in beacon_payload:
+                response = requests.request(
+                    method=payload["method"],
+                    url=payload["url"],
+                    headers=payload["headers"],
+                    data=payload["body"]
+                )
+                if response.status_code != 200:
+                    raise Exception(response.text)
         except KeyError as ke:
             raise KeyError(ke)
         except docker.errors.DockerException as de:
