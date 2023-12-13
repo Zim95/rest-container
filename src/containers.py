@@ -233,6 +233,8 @@ class DockerContainerManager(ContainerManager):
                 return [
                     {
                         "container_id": container.id,
+                        "container_name": self.container_name,
+                        "container_image": self.image_name,
                         "container_network": self.container_network,
                         "container_port": None,
                     }
