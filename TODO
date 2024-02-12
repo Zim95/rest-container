@@ -1,6 +1,6 @@
-- Loadbalancing is done through k8s services.
-- Look into Ingress.
-- Look into SSL.
+- Loadbalancing is done through k8s services. - Have done that in another project - followback.
+- Look into Ingress. - Have done that in another project - followback.
+- Look into SSL. - Have done that in another project - followback.
 - Fix Makefile issues.
 - Add swagger UI.
 - Add unit tests.
